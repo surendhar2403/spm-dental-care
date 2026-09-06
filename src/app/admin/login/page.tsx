@@ -67,7 +67,6 @@ function AdminLoginForm() {
         console.error("[admin login] is_admin() check failed:", {
           isAdmin,
           message: adminCheckError?.message,
-          status: adminCheckError?.status,
           code: (adminCheckError as { code?: string } | undefined)?.code,
           details: (adminCheckError as { details?: string } | undefined)?.details,
           hint: (adminCheckError as { hint?: string } | undefined)?.hint,

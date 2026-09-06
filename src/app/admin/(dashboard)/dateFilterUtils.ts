@@ -24,9 +24,24 @@ export function getLocalISODate(date: Date = new Date()): string {
   return `${year}-${month}-${day}`;
 }
 
+/**
+ * Parses a "YYYY-MM-DD" string into its numeric [year, month, day] parts.
+ * Every caller in this file only ever passes a well-formed ISO date (from
+ * `getLocalISODate` or a `<input type="date">` value), so this never
+ * actually throws in practice — the guard exists purely to give TypeScript
+ * a definite `number` for each part instead of `number | undefined`.
+ */
+function parseIsoDateParts(isoDate: string): [year: number, month: number, day: number] {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  if (year === undefined || month === undefined || day === undefined) {
+    throw new Error(`Invalid ISO date string: "${isoDate}"`);
+  }
+  return [year, month, day];
+}
+
 /** Adds `days` (can be negative) to a "YYYY-MM-DD" string, in local time. */
 export function addDays(isoDate: string, days: number): string {
-  const [year, month, day] = isoDate.split("-").map(Number);
+  const [year, month, day] = parseIsoDateParts(isoDate);
   const date = new Date(year, month - 1, day);
   date.setDate(date.getDate() + days);
   return getLocalISODate(date);
@@ -39,7 +54,7 @@ export function addDays(isoDate: string, days: number): string {
  * not appointments that have already passed.
  */
 export function getThisWeekRange(todayIso: string): { start: string; end: string } {
-  const [year, month, day] = todayIso.split("-").map(Number);
+  const [year, month, day] = parseIsoDateParts(todayIso);
   const date = new Date(year, month - 1, day);
   const dayOfWeek = date.getDay(); // 0 = Sunday ... 6 = Saturday
   const daysUntilSaturday = 6 - dayOfWeek;
