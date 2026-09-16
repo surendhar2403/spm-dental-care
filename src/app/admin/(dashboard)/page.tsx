@@ -1,9 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import LogoutButton from "./LogoutButton";
 import { createClient } from "@/lib/supabase/client";
 import { normalizeIndianMobile, openWhatsAppConfirmation } from "@/lib/utils";
-import { APPOINTMENT_STATUSES, type Appointment, type AppointmentStatus } from "@/types/admin";
+import {
+  ADMIN_TREATMENT_OPTIONS,
+  APPOINTMENT_STATUSES,
+  type AdminTreatment,
+  type Appointment,
+  type AppointmentStatus,
+  type Doctor,
+} from "@/types/admin";
 import AppointmentsTable from "./AppointmentsTable";
 import ConfirmAppointmentModal from "./ConfirmAppointmentModal";
 import DeleteConfirmDialog from "./DeleteConfirmDialog";
@@ -11,6 +19,13 @@ import ArchiveConfirmDialog from "./ArchiveConfirmDialog";
 import BinModal from "./BinModal";
 import ArchivedAppointmentDetailsModal from "./ArchivedAppointmentDetailsModal";
 import NewAppointmentModal, { type NewAppointmentValues } from "./NewAppointmentModal";
+import ManageDoctorsModal, { type NewDoctorValues } from "./ManageDoctorsModal";
+import ManageTreatmentsModal from "./ManageTreatmentsModal";
+import ManageTestimonialsModal from "./ManageTestimonialsModal";
+import ManageClinicInfoModal from "./ManageClinicInfoModal";
+import type { AdminTestimonial } from "@/types/admin";
+import type { ClinicGalleryImage, ClinicSettings } from "@/types";
+import PaginationControls from "./PaginationControls";
 import TodaysAppointments from "./TodaysAppointments";
 import AppointmentDetailsModal from "./AppointmentDetailsModal";
 import { formatDate, formatTime } from "./appointmentDisplay";
@@ -26,6 +41,7 @@ type LoadState = "loading" | "loaded" | "error";
 const LOAD_ERROR_MESSAGE =
   "We couldn't load appointments right now. Please check your connection and try again.";
 const ACTION_ERROR_MESSAGE = "That didn't go through. Please try again.";
+const APPOINTMENTS_PAGE_SIZE = 10;
 
 export default function AdminDashboardPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -35,6 +51,7 @@ export default function AdminDashboardPage() {
   const [statusFilter, setStatusFilter] = useState<"all" | AppointmentStatus>("all");
   const [dateFilterMode, setDateFilterMode] = useState<DateFilterMode>("all");
   const [customDate, setCustomDate] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
 
   const [busyId, setBusyId] = useState<string | null>(null);
   const [pendingArchive, setPendingArchive] = useState<Appointment | null>(null);
@@ -51,6 +68,42 @@ export default function AdminDashboardPage() {
   const [editingTreatmentId, setEditingTreatmentId] = useState<string | null>(null);
   const [treatmentDraft, setTreatmentDraft] = useState("");
 
+  // Doctors & Treatments management (Admin Dashboard requirements 1 & 2).
+  // Both lists are fetched once on mount, alongside appointments, and kept
+  // in their own state — entirely separate from the appointments list, so
+  // nothing here can affect appointment data.
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [doctorsLoadState, setDoctorsLoadState] = useState<LoadState>("loading");
+  const [doctorsLoadError, setDoctorsLoadError] = useState<string | null>(null);
+  const [isDoctorsModalOpen, setIsDoctorsModalOpen] = useState(false);
+  const [isSavingDoctor, setIsSavingDoctor] = useState(false);
+  const [doctorBusyId, setDoctorBusyId] = useState<string | null>(null);
+
+  const [treatments, setTreatments] = useState<AdminTreatment[]>([]);
+  const [treatmentsLoadState, setTreatmentsLoadState] = useState<LoadState>("loading");
+  const [treatmentsLoadError, setTreatmentsLoadError] = useState<string | null>(null);
+  const [isTreatmentsModalOpen, setIsTreatmentsModalOpen] = useState(false);
+  const [isSavingTreatment, setIsSavingTreatment] = useState(false);
+  const [treatmentBusyId, setTreatmentBusyId] = useState<string | null>(null);
+
+  // Testimonials (Admin-managed patient reviews)
+  const [testimonials, setTestimonials] = useState<AdminTestimonial[]>([]);
+  const [testimonialsLoadState, setTestimonialsLoadState] = useState<LoadState>("loading");
+  const [testimonialsLoadError, setTestimonialsLoadError] = useState<string | null>(null);
+  const [isTestimonialsModalOpen, setIsTestimonialsModalOpen] = useState(false);
+  const [isSavingTestimonial, setIsSavingTestimonial] = useState(false);
+  const [testimonialBusyId, setTestimonialBusyId] = useState<string | null>(null);
+
+  const [clinicSettings, setClinicSettings] = useState<ClinicSettings | null>(null);
+  const [clinicSettingsLoadState, setClinicSettingsLoadState] = useState<LoadState>("loading");
+  const [clinicSettingsLoadError, setClinicSettingsLoadError] = useState<string | null>(null);
+  const [clinicGalleryImages, setClinicGalleryImages] = useState<ClinicGalleryImage[]>([]);
+  const [clinicGalleryLoadState, setClinicGalleryLoadState] = useState<LoadState>("loading");
+  const [clinicGalleryLoadError, setClinicGalleryLoadError] = useState<string | null>(null);
+  const [isClinicInfoModalOpen, setIsClinicInfoModalOpen] = useState(false);
+  const [isSavingClinicInfo, setIsSavingClinicInfo] = useState(false);
+  const [clinicInfoBusyId, setClinicInfoBusyId] = useState<string | null>(null);
+
   // Two-step "Confirmed" status workflow. Selecting "Confirmed" never
   // updates the row directly — it opens this review-then-schedule modal,
   // and only the modal's own "Confirm Appointment" action writes to the DB.
@@ -60,25 +113,189 @@ export default function AdminDashboardPage() {
     setLoadState("loading");
     try {
       const supabase = createClient();
+
+      // TEMP DIAGNOSTIC — remove once doctors/treatments load is confirmed
+      // fixed. Logged here too (not just doctors/treatments) so we have a
+      // known-working baseline to compare against: same client creation
+      // pattern, same session, different table.
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      // eslint-disable-next-line no-console
+      console.log("[fetchAppointments] Supabase session", {
+        hasSession: !!session,
+        userId: session?.user?.id,
+        email: session?.user?.email,
+        role: session?.user?.role,
+        tokenExpiresAt: session?.expires_at,
+      });
+
       const { data, error } = await supabase
         .from("appointments")
         .select("*")
         .order("created_at", { ascending: false });
 
       if (error) {
+        // eslint-disable-next-line no-console
+        console.error("[fetchAppointments] Supabase error", {
+          error,
+          message: error?.message,
+          details: error?.details,
+          hint: error?.hint,
+          code: error?.code,
+          name: error?.name,
+        });
         setLoadState("error");
         return;
       }
 
       setAppointments((data ?? []) as Appointment[]);
       setLoadState("loaded");
-    } catch {
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("[fetchAppointments] Unexpected/thrown error", err);
       setLoadState("error");
+    }
+  }
+
+  /**
+   * Loads public.doctors. IMPORTANT: the real Supabase error is always
+   * logged (never swallowed) and its message is kept in state so
+   * ManageDoctorsModal can show the *actual* reason a load failed —
+   * e.g. "relation \"public.doctors\" does not exist" means the
+   * supabase/admin_doctors_treatments_noshow.sql migration hasn't been
+   * run yet on this project; "permission denied for table doctors" means
+   * an RLS/grant problem; anything else (network, etc.) shows as-is.
+   * See supabase/README.md for how to read/act on these messages.
+   */
+  async function fetchDoctors() {
+    setDoctorsLoadState("loading");
+    setDoctorsLoadError(null);
+    try {
+      const supabase = createClient();
+
+      // TEMP DIAGNOSTIC — see fetchAppointments() above for why this is
+      // logged: we need to know whether the browser actually holds an
+      // authenticated session at the moment this query runs, not just
+      // assume it does because the page rendered.
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      // eslint-disable-next-line no-console
+      console.log("[fetchDoctors] Supabase session", {
+        hasSession: !!session,
+        userId: session?.user?.id,
+        email: session?.user?.email,
+        role: session?.user?.role,
+        tokenExpiresAt: session?.expires_at,
+      });
+
+      const { data, error } = await supabase
+        .from("doctors")
+        .select("id, name, credentials, specialty, description, experience, is_active, sort_order, created_at")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true });
+
+      if (error) {
+        // TEMP DIAGNOSTIC: log every field, plus the raw error object
+        // itself (some Supabase/PostgREST error shapes only show their
+        // real content when logged as the object directly rather than
+        // destructured — logging both ways so nothing is hidden).
+        // eslint-disable-next-line no-console
+        console.error("[fetchDoctors] Supabase error", {
+          error,
+          message: error?.message,
+          details: error?.details,
+          hint: error?.hint,
+          code: error?.code,
+          name: error?.name,
+        });
+        setDoctorsLoadError(
+          [error?.message, error?.code ? `(code: ${error.code})` : null]
+            .filter(Boolean)
+            .join(" ") || "Unknown Supabase error.",
+        );
+        setDoctorsLoadState("error");
+        return;
+      }
+
+      setDoctors((data ?? []) as Doctor[]);
+      setDoctorsLoadState("loaded");
+    } catch (err) {
+      console.error("[fetchDoctors] Unexpected error loading public.doctors", err);
+      setDoctorsLoadError(err instanceof Error ? err.message : "Unexpected error.");
+      setDoctorsLoadState("error");
+    }
+  }
+
+  /**
+   * Loads public.treatments. See fetchDoctors() above — same
+   * never-swallow-the-real-error approach.
+   */
+  async function fetchTreatments() {
+    setTreatmentsLoadState("loading");
+    setTreatmentsLoadError(null);
+    try {
+      const supabase = createClient();
+
+      // TEMP DIAGNOSTIC — see fetchDoctors() above.
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      // eslint-disable-next-line no-console
+      console.log("[fetchTreatments] Supabase session", {
+        hasSession: !!session,
+        userId: session?.user?.id,
+        email: session?.user?.email,
+        role: session?.user?.role,
+        tokenExpiresAt: session?.expires_at,
+      });
+
+      const { data, error } = await supabase
+        .from("treatments")
+        .select("*")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true });
+
+      if (error) {
+        // TEMP DIAGNOSTIC: same reasoning as fetchDoctors() above — log
+        // the raw error object as well as its destructured fields.
+        // eslint-disable-next-line no-console
+        console.error("[fetchTreatments] Supabase error", {
+          error,
+          message: error?.message,
+          details: error?.details,
+          hint: error?.hint,
+          code: error?.code,
+          name: error?.name,
+        });
+        setTreatmentsLoadError(
+          [error?.message, error?.code ? `(code: ${error.code})` : null]
+            .filter(Boolean)
+            .join(" ") || "Unknown Supabase error.",
+        );
+        setTreatmentsLoadState("error");
+        return;
+      }
+
+      setTreatments((data ?? []) as AdminTreatment[]);
+      setTreatmentsLoadState("loaded");
+    } catch (err) {
+      console.error("[fetchTreatments] Unexpected error loading public.treatments", err);
+      setTreatmentsLoadError(err instanceof Error ? err.message : "Unexpected error.");
+      setTreatmentsLoadState("error");
     }
   }
 
   useEffect(() => {
     fetchAppointments();
+    fetchDoctors();
+    fetchTreatments();
+    fetchTestimonials();
+    fetchClinicSettings();
+    fetchClinicGallery();
   }, []);
 
   useEffect(() => {
@@ -86,6 +303,35 @@ export default function AdminDashboardPage() {
     const timer = setTimeout(() => setBanner(null), 4000);
     return () => clearTimeout(timer);
   }, [banner]);
+
+  useEffect(() => {
+    function handleSettingsAction(event: Event) {
+      const action = (event as CustomEvent<{ action?: string }>).detail?.action;
+
+      switch (action) {
+        case "doctors":
+          setIsDoctorsModalOpen(true);
+          break;
+        case "treatments":
+          setIsTreatmentsModalOpen(true);
+          break;
+        case "testimonials":
+          setIsTestimonialsModalOpen(true);
+          break;
+        case "clinic":
+          setIsClinicInfoModalOpen(true);
+          break;
+        case "bin":
+          setIsBinOpen(true);
+          break;
+        default:
+          break;
+      }
+    }
+
+    window.addEventListener("admin-settings-action", handleSettingsAction);
+    return () => window.removeEventListener("admin-settings-action", handleSettingsAction);
+  }, []);
 
   // Archived appointments (Recently Deleted / Bin) must never count toward
   // the normal list, its summary cards, or any date/status/search filter —
@@ -110,48 +356,584 @@ export default function AdminDashboardPage() {
       confirmed: 0,
       completed: 0,
       cancelled: 0,
+      no_show: 0,
     };
+
     for (const appointment of activeAppointments) {
       counts[appointment.status] = (counts[appointment.status] ?? 0) + 1;
     }
+
     return counts;
   }, [activeAppointments]);
+
+  async function fetchClinicSettings() {
+    setClinicSettingsLoadState("loading");
+    setClinicSettingsLoadError(null);
+
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("clinic_settings")
+        .select("*")
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        console.error("[fetchClinicSettings] Supabase error", {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          fullError: error,
+        });
+        setClinicSettingsLoadError(
+          [error.message, error.code ? `(code: ${error.code})` : null].filter(Boolean).join(" ") ||
+            "Unknown Supabase error.",
+        );
+        setClinicSettingsLoadState("error");
+        return;
+      }
+
+      setClinicSettings((data ?? null) as ClinicSettings | null);
+      setClinicSettingsLoadState("loaded");
+    } catch (err) {
+      console.error("[fetchClinicSettings] Unexpected error", err);
+      setClinicSettingsLoadError(err instanceof Error ? err.message : "Unexpected error.");
+      setClinicSettingsLoadState("error");
+    }
+  }
+
+  async function fetchClinicGallery() {
+    setClinicGalleryLoadState("loading");
+    setClinicGalleryLoadError(null);
+
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("clinic_gallery")
+        .select("*")
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true });
+
+      if (error) {
+        console.error("[fetchClinicGallery] Supabase error", {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          fullError: error,
+        });
+        setClinicGalleryLoadError(
+          [error.message, error.code ? `(code: ${error.code})` : null].filter(Boolean).join(" ") ||
+            "Unknown Supabase error.",
+        );
+        setClinicGalleryLoadState("error");
+        return;
+      }
+
+      setClinicGalleryImages((data ?? []) as ClinicGalleryImage[]);
+      setClinicGalleryLoadState("loaded");
+    } catch (err) {
+      console.error("[fetchClinicGallery] Unexpected error", err);
+      setClinicGalleryLoadError(err instanceof Error ? err.message : "Unexpected error.");
+      setClinicGalleryLoadState("error");
+    }
+  }
+
+  async function handleSaveClinicSettings(values: Record<string, string | number | null>) {
+    setIsSavingClinicInfo(true);
+    try {
+      const supabase = createClient();
+      const payload = {
+        clinic_name: String(values.clinic_name ?? "SPM Dental Care").trim() || "SPM Dental Care",
+        location_heading: String(values.location_heading ?? "Find us in Kumananchavadi").trim() || "Find us in Kumananchavadi",
+        location_subtitle: String(values.location_subtitle ?? "").trim() || null,
+        business_name: String(values.business_name ?? "").trim() || null,
+        address_line_1: String(values.address_line_1 ?? "").trim() || null,
+        address_line_2: String(values.address_line_2 ?? "").trim() || null,
+        city: String(values.city ?? "").trim() || null,
+        state: String(values.state ?? "").trim() || null,
+        pincode: String(values.pincode ?? "").trim() || null,
+        country: String(values.country ?? "").trim() || null,
+        map_url: String(values.map_url ?? "").trim() || null,
+        latitude: values.latitude === null || values.latitude === undefined || values.latitude === "" ? null : Number(values.latitude),
+        longitude: values.longitude === null || values.longitude === undefined || values.longitude === "" ? null : Number(values.longitude),
+        contact_number: String(values.contact_number ?? "").trim() || null,
+        opening_hours: String(values.opening_hours ?? "").trim() || null,
+      };
+
+      const query = clinicSettings?.id
+        ? supabase.from("clinic_settings").update(payload).eq("id", clinicSettings.id)
+        : supabase.from("clinic_settings").insert(payload).select().single();
+
+      const { data, error } = await query;
+
+      if (error || !data) {
+        console.error("[handleSaveClinicSettings] Supabase update/insert failed", {
+          message: error?.message,
+          code: error?.code,
+          details: error?.details,
+          hint: error?.hint,
+          fullError: error,
+        });
+        setBanner({
+          type: "error",
+          message: error ? `Couldn't save clinic information: ${error.message}` : "Couldn't save clinic information.",
+        });
+        return;
+      }
+
+      setClinicSettings(data as ClinicSettings);
+      setBanner({ type: "success", message: "Clinic information saved." });
+      setIsClinicInfoModalOpen(false);
+    } catch (err) {
+      console.error("[handleSaveClinicSettings] Unexpected error", err);
+      setBanner({ type: "error", message: ACTION_ERROR_MESSAGE });
+    } finally {
+      setIsSavingClinicInfo(false);
+    }
+  }
+
+  async function handleAddGalleryImage(file: File, title?: string) {
+    setClinicInfoBusyId("upload");
+    try {
+      const supabase = createClient();
+      const ext = file.name.includes(".") ? file.name.slice(file.name.lastIndexOf(".")) : "";
+      const filePath = `clinic-gallery/${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("clinic-gallery")
+        .upload(filePath, file, { upsert: false, contentType: file.type || "image/jpeg" });
+
+      if (uploadError || !uploadData) {
+        console.error("[handleAddGalleryImage] Storage upload failed", {
+          message: uploadError?.message,
+          code: uploadError?.status,
+          fullError: uploadError,
+        });
+        setBanner({ type: "error", message: uploadError ? `Couldn't upload image: ${uploadError.message}` : "Couldn't upload image." });
+        return;
+      }
+
+      const publicUrl = supabase.storage.from("clinic-gallery").getPublicUrl(uploadData.path).data.publicUrl;
+      const nextSort = clinicGalleryImages.length === 0 ? 1 : Math.max(...clinicGalleryImages.map((image) => image.sort_order)) + 1;
+      const { data, error } = await supabase
+        .from("clinic_gallery")
+        .insert({
+          title: title?.trim() || null,
+          image_url: publicUrl,
+          storage_path: uploadData.path,
+          sort_order: nextSort,
+          is_active: true,
+        })
+        .select()
+        .single();
+
+      if (error || !data) {
+        console.error("[handleAddGalleryImage] DB insert failed", {
+          message: error?.message,
+          code: error?.code,
+          details: error?.details,
+          hint: error?.hint,
+          fullError: error,
+        });
+        setBanner({ type: "error", message: error ? `Couldn't save gallery image: ${error.message}` : "Couldn't save gallery image." });
+        return;
+      }
+
+      setClinicGalleryImages((current) => [...current, data as ClinicGalleryImage].sort((a, b) => a.sort_order - b.sort_order));
+      setBanner({ type: "success", message: "Gallery image uploaded." });
+    } catch (err) {
+      console.error("[handleAddGalleryImage] Unexpected error", err);
+      setBanner({ type: "error", message: ACTION_ERROR_MESSAGE });
+    } finally {
+      setClinicInfoBusyId(null);
+    }
+  }
+
+  async function handleReplaceGalleryImage(image: ClinicGalleryImage, file: File) {
+    setClinicInfoBusyId(image.id);
+    try {
+      const supabase = createClient();
+      const nextPath = image.storage_path || `clinic-gallery/${Date.now()}-${Math.random().toString(36).slice(2)}.${file.name.split(".").pop() || "jpg"}`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("clinic-gallery")
+        .upload(nextPath, file, { upsert: true, contentType: file.type || "image/jpeg" });
+
+      if (uploadError || !uploadData) {
+        console.error("[handleReplaceGalleryImage] Storage upload failed", {
+          message: uploadError?.message,
+          code: uploadError?.status,
+          fullError: uploadError,
+        });
+        setBanner({ type: "error", message: uploadError ? `Couldn't replace image: ${uploadError.message}` : "Couldn't replace image." });
+        return;
+      }
+
+      const publicUrl = supabase.storage.from("clinic-gallery").getPublicUrl(uploadData.path).data.publicUrl;
+      const { data, error } = await supabase
+        .from("clinic_gallery")
+        .update({ image_url: publicUrl, storage_path: uploadData.path, updated_at: new Date().toISOString() })
+        .eq("id", image.id)
+        .select()
+        .single();
+
+      if (error || !data) {
+        console.error("[handleReplaceGalleryImage] DB update failed", {
+          message: error?.message,
+          code: error?.code,
+          details: error?.details,
+          hint: error?.hint,
+          fullError: error,
+        });
+        setBanner({ type: "error", message: error ? `Couldn't save replacement image: ${error.message}` : "Couldn't save replacement image." });
+        return;
+      }
+
+      setClinicGalleryImages((current) =>
+        current.map((item) => (item.id === image.id ? (data as ClinicGalleryImage) : item)).sort((a, b) => a.sort_order - b.sort_order),
+      );
+      setBanner({ type: "success", message: "Gallery image replaced." });
+    } catch (err) {
+      console.error("[handleReplaceGalleryImage] Unexpected error", err);
+      setBanner({ type: "error", message: ACTION_ERROR_MESSAGE });
+    } finally {
+      setClinicInfoBusyId(null);
+    }
+  }
+
+  async function handleRemoveGalleryImage(image: ClinicGalleryImage) {
+    setClinicInfoBusyId(image.id);
+    try {
+      const supabase = createClient();
+      if (image.storage_path) {
+        const { error: deleteStorageError } = await supabase.storage.from("clinic-gallery").remove([image.storage_path]);
+        if (deleteStorageError) {
+          console.error("[handleRemoveGalleryImage] Storage delete failed", {
+            message: deleteStorageError.message,
+            code: deleteStorageError.status,
+            fullError: deleteStorageError,
+          });
+        }
+      }
+
+      const { error } = await supabase.from("clinic_gallery").delete().eq("id", image.id);
+      if (error) {
+        console.error("[handleRemoveGalleryImage] DB delete failed", {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          fullError: error,
+        });
+        setBanner({ type: "error", message: `Couldn't remove image: ${error.message}` });
+        return;
+      }
+
+      setClinicGalleryImages((current) => current.filter((item) => item.id !== image.id));
+      setBanner({ type: "success", message: "Gallery image removed." });
+    } catch (err) {
+      console.error("[handleRemoveGalleryImage] Unexpected error", err);
+      setBanner({ type: "error", message: ACTION_ERROR_MESSAGE });
+    } finally {
+      setClinicInfoBusyId(null);
+    }
+  }
+
+  async function handleReorderGalleryImage(image: ClinicGalleryImage, direction: "up" | "down") {
+    setClinicInfoBusyId(image.id);
+    try {
+      const supabase = createClient();
+      const currentIndex = clinicGalleryImages.findIndex((item) => item.id === image.id);
+      const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+      if (currentIndex < 0 || targetIndex < 0 || targetIndex >= clinicGalleryImages.length) {
+        return;
+      }
+
+      const targetImage = clinicGalleryImages[targetIndex];
+      if (!targetImage) {
+        return;
+      }
+
+      const currentSortOrder = image.sort_order;
+      const nextSortOrder = targetImage.sort_order;
+
+      const { error: firstError } = await supabase
+        .from("clinic_gallery")
+        .update({ sort_order: nextSortOrder })
+        .eq("id", image.id);
+
+      const { error: secondError } = await supabase
+        .from("clinic_gallery")
+        .update({ sort_order: currentSortOrder })
+        .eq("id", targetImage.id);
+
+      if (firstError || secondError) {
+        console.error("[handleReorderGalleryImage] Reorder failed", {
+          firstError,
+          secondError,
+        });
+        setBanner({ type: "error", message: "Couldn't reorder gallery image." });
+        return;
+      }
+
+      setClinicGalleryImages((current) =>
+        [...current]
+          .map((item) => {
+            if (item.id === image.id) return { ...item, sort_order: nextSortOrder };
+            if (item.id === targetImage.id) return { ...item, sort_order: currentSortOrder };
+            return item;
+          })
+          .sort((a, b) => a.sort_order - b.sort_order),
+      );
+    } catch (err) {
+      console.error("[handleReorderGalleryImage] Unexpected error", err);
+      setBanner({ type: "error", message: ACTION_ERROR_MESSAGE });
+    } finally {
+      setClinicInfoBusyId(null);
+    }
+  }
+
+  async function handleToggleGalleryImageActive(image: ClinicGalleryImage) {
+    setClinicInfoBusyId(image.id);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("clinic_gallery")
+        .update({ is_active: !image.is_active })
+        .eq("id", image.id)
+        .select()
+        .single();
+
+      if (error || !data) {
+        console.error("[handleToggleGalleryImageActive] DB update failed", {
+          message: error?.message,
+          code: error?.code,
+          details: error?.details,
+          hint: error?.hint,
+          fullError: error,
+        });
+        setBanner({ type: "error", message: error ? `Couldn't update gallery image: ${error.message}` : "Couldn't update gallery image." });
+        return;
+      }
+
+      setClinicGalleryImages((current) =>
+        current.map((item) => (item.id === image.id ? (data as ClinicGalleryImage) : item)).sort((a, b) => a.sort_order - b.sort_order),
+      );
+      setBanner({ type: "success", message: `${(data as ClinicGalleryImage).is_active ? "Enabled" : "Disabled"} gallery image.` });
+    } catch (err) {
+      console.error("[handleToggleGalleryImageActive] Unexpected error", err);
+      setBanner({ type: "error", message: ACTION_ERROR_MESSAGE });
+    } finally {
+      setClinicInfoBusyId(null);
+    }
+  }
+
+  /** Fetch admin testimonials */
+  async function fetchTestimonials() {
+    setTestimonialsLoadState("loading");
+    setTestimonialsLoadError(null);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("testimonials")
+        .select("*")
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true });
+
+      if (error) {
+        console.error("[fetchTestimonials] Supabase error", error);
+        setTestimonialsLoadError(error?.message ?? "Unknown Supabase error.");
+        setTestimonialsLoadState("error");
+        return;
+      }
+
+      setTestimonials((data ?? []) as AdminTestimonial[]);
+      setTestimonialsLoadState("loaded");
+    } catch (err) {
+      console.error("[fetchTestimonials] Unexpected error loading public.testimonials", err);
+      setTestimonialsLoadError(err instanceof Error ? err.message : "Unexpected error.");
+      setTestimonialsLoadState("error");
+    }
+  }
+
+  async function handleAddTestimonial(values: { patient_name: string; review_text: string; rating: number; source: string; sort_order: number }) {
+    setIsSavingTestimonial(true);
+    try {
+      const supabase = createClient();
+      const nextSortOrder = values.sort_order ?? Math.max(0, ...testimonials.map((t) => t.sort_order || 0)) + 1;
+      const { data, error } = await supabase
+        .from("testimonials")
+        .insert({ ...values, sort_order: nextSortOrder })
+        .select()
+        .single();
+
+      if (error || !data) {
+        const supabaseError = error ?? {
+          message: "No data returned from Supabase insert.",
+          code: "NO_DATA",
+          details: null,
+          hint: null,
+        };
+
+        console.error("[handleAddTestimonial] Supabase insert failed", {
+          message: supabaseError.message,
+          code: supabaseError.code,
+          details: supabaseError.details,
+          hint: supabaseError.hint,
+          fullError: supabaseError,
+        });
+
+        setBanner({
+          type: "error",
+          message: supabaseError.message || "Couldn't add review.",
+        });
+
+        return;
+      }
+
+      setTestimonials((current) =>
+        [data as AdminTestimonial, ...current].sort(
+          (a, b) =>
+            (a.sort_order ?? 0) - (b.sort_order ?? 0) ||
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+        ),
+      );
+      setBanner({ type: "success", message: `Added review for ${(data as AdminTestimonial).patient_name}.` });
+    } catch (err) {
+      console.error("[handleAddTestimonial] Unexpected error", err);
+      setBanner({ type: "error", message: ACTION_ERROR_MESSAGE });
+    } finally {
+      setIsSavingTestimonial(false);
+    }
+  }
+
+  async function handleRemoveTestimonial(testimonial: AdminTestimonial) {
+    setTestimonialBusyId(testimonial.id);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.from("testimonials").delete().eq("id", testimonial.id);
+      if (error) {
+        console.error("[handleRemoveTestimonial] Supabase error deleting public.testimonials", error);
+        setBanner({ type: "error", message: `Couldn't remove review: ${error.message}` });
+      } else {
+        setTestimonials((current) => current.filter((t) => t.id !== testimonial.id));
+        setBanner({ type: "success", message: `Removed review for ${testimonial.patient_name}.` });
+      }
+    } catch (err) {
+      console.error("[handleRemoveTestimonial] Unexpected error", err);
+      setBanner({ type: "error", message: ACTION_ERROR_MESSAGE });
+    } finally {
+      setTestimonialBusyId(null);
+    }
+  }
+
+  async function handleUpdateTestimonial(updated: AdminTestimonial) {
+    setTestimonialBusyId(updated.id);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("testimonials")
+        .update({
+          patient_name: updated.patient_name,
+          review_text: updated.review_text,
+          rating: updated.rating,
+          source: updated.source,
+          is_active: updated.is_active,
+          sort_order: updated.sort_order ?? 100,
+        })
+        .eq("id", updated.id)
+        .select()
+        .single();
+
+      if (error || !data) {
+        console.error("[handleUpdateTestimonial] Supabase error updating public.testimonials", error);
+        setBanner({ type: "error", message: error ? `Couldn't update review: ${error.message}` : ACTION_ERROR_MESSAGE });
+        return;
+      }
+
+      setTestimonials((current) =>
+        current
+          .map((t) => (t.id === updated.id ? (data as AdminTestimonial) : t))
+          .sort(
+            (a, b) =>
+              (a.sort_order ?? 0) - (b.sort_order ?? 0) ||
+              new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+          ),
+      );
+      setBanner({ type: "success", message: `Updated review for ${(data as AdminTestimonial).patient_name}.` });
+    } catch (err) {
+      console.error("[handleUpdateTestimonial] Unexpected error", err);
+      setBanner({ type: "error", message: ACTION_ERROR_MESSAGE });
+    } finally {
+      setTestimonialBusyId(null);
+    }
+  }
+
+  async function handleToggleTestimonialActive(testimonial: AdminTestimonial) {
+    setTestimonialBusyId(testimonial.id);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("testimonials")
+        .update({ is_active: !testimonial.is_active })
+        .eq("id", testimonial.id)
+        .select()
+        .single();
+
+      if (error || !data) {
+        console.error("[handleToggleTestimonialActive] Supabase error updating is_active", error);
+        setBanner({ type: "error", message: error ? `Couldn't update review: ${error.message}` : ACTION_ERROR_MESSAGE });
+        return;
+      }
+
+      setTestimonials((current) =>
+        current
+          .map((t) => (t.id === testimonial.id ? (data as AdminTestimonial) : t))
+          .sort(
+            (a, b) =>
+              (a.sort_order ?? 0) - (b.sort_order ?? 0) ||
+              new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+          ),
+      );
+      setBanner({ type: "success", message: `${(data as AdminTestimonial).is_active ? "Enabled" : "Disabled"} review for ${(data as AdminTestimonial).patient_name}.` });
+    } catch (err) {
+      console.error("[handleToggleTestimonialActive] Unexpected error", err);
+      setBanner({ type: "error", message: ACTION_ERROR_MESSAGE });
+    } finally {
+      setTestimonialBusyId(null);
+    }
+  }
 
   const summaryCards: Array<{
     key: "all" | AppointmentStatus;
     label: string;
     count: number;
-    activeClasses: string;
   }> = [
     {
       key: "all",
       label: "Total",
       count: activeAppointments.length,
-      activeClasses: "border-blue-600 bg-blue-50 text-blue-900",
     },
     {
       key: "pending",
       label: "Pending",
       count: statusCounts.pending,
-      activeClasses: "border-gold-500 bg-gold-100 text-gold-600",
     },
     {
       key: "confirmed",
       label: "Confirmed",
       count: statusCounts.confirmed,
-      activeClasses: "border-blue-600 bg-blue-100 text-blue-700",
     },
     {
       key: "completed",
       label: "Completed",
       count: statusCounts.completed,
-      activeClasses: "border-emerald-500 bg-emerald-100 text-emerald-700",
     },
     {
       key: "cancelled",
       label: "Cancelled",
       count: statusCounts.cancelled,
-      activeClasses: "border-red-400 bg-red-50 text-red-600",
     },
   ];
 
@@ -182,6 +964,35 @@ export default function AdminDashboardPage() {
 
   const hasActiveFilters = Boolean(search || statusFilter !== "all" || dateFilterMode !== "all");
 
+  // Pagination (Admin Dashboard requirement 4). Purely a client-side slice
+  // of `filteredAppointments` — the existing architecture already loads
+  // every active appointment into memory and filters it there, so this
+  // keeps that same approach rather than introducing a separate
+  // server-side paging query. Every summary count/statistic above is
+  // computed from `activeAppointments`/`statusCounts`, never from the
+  // paginated slice, so pagination can never skew them.
+  const totalPages = Math.max(1, Math.ceil(filteredAppointments.length / APPOINTMENTS_PAGE_SIZE));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedAppointments = useMemo(() => {
+    const start = (safeCurrentPage - 1) * APPOINTMENTS_PAGE_SIZE;
+    return filteredAppointments.slice(start, start + APPOINTMENTS_PAGE_SIZE);
+  }, [filteredAppointments, safeCurrentPage]);
+
+  // Reset to page 1 whenever search/status/date filters change, so an
+  // admin never lands on a now-empty page after narrowing results.
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, statusFilter, dateFilterMode, customDate]);
+
+  // Treatment option list fed to the "+ New Appointment" form and the
+  // inline treatment editor. Falls back to the static
+  // ADMIN_TREATMENT_OPTIONS if the database list hasn't loaded yet (or
+  // failed to load) so those pickers are never left empty.
+  const treatmentOptions = useMemo(
+    () => (treatments.length > 0 ? treatments.map((treatment) => treatment.name) : ADMIN_TREATMENT_OPTIONS),
+    [treatments],
+  );
+
   const viewingAppointment = useMemo(
     () => activeAppointments.find((appointment) => appointment.id === viewingAppointmentId) ?? null,
     [activeAppointments, viewingAppointmentId],
@@ -192,7 +1003,7 @@ export default function AdminDashboardPage() {
     [archivedAppointments, viewingArchivedId],
   );
 
-  async function handleStatusChange(id: string, status: AppointmentStatus) {
+  async function handleStatusChange(id: string, status: AppointmentStatus): Promise<boolean> {
     const previous = appointments;
     setBusyId(id);
     setAppointments((current) =>
@@ -208,12 +1019,15 @@ export default function AdminDashboardPage() {
       if (error) {
         setAppointments(previous);
         setBanner({ type: "error", message: ACTION_ERROR_MESSAGE });
-      } else {
-        setBanner({ type: "success", message: `Status updated to "${status}".` });
+        return false;
       }
+
+      setBanner({ type: "success", message: `Status updated to "${status}".` });
+      return true;
     } catch {
       setAppointments(previous);
       setBanner({ type: "error", message: ACTION_ERROR_MESSAGE });
+      return false;
     } finally {
       setBusyId(null);
     }
@@ -221,17 +1035,12 @@ export default function AdminDashboardPage() {
 
   /**
    * Entry point passed to the table/details modal for the status <select>.
-   * Every status keeps its previous immediate-update behavior, EXCEPT
-   * "confirmed": that one only opens the confirmation workflow modal below,
-   * and does not touch the database (or local state) by itself.
+   * Status changes are always direct updates here. The dedicated
+   * confirmation/date-time modal remains an explicit, separate action and
+   * is never triggered as a side effect of selecting a status value.
    */
-  function handleStatusSelectChange(id: string, status: AppointmentStatus) {
-    if (status === "confirmed") {
-      const appointment = appointments.find((a) => a.id === id);
-      if (appointment) setConfirmingAppointment(appointment);
-      return;
-    }
-    handleStatusChange(id, status);
+  function handleStatusSelectChange(id: string, status: AppointmentStatus): Promise<boolean> {
+    return handleStatusChange(id, status);
   }
 
   async function handleConfirmAppointment(date: string, time: string, message: string) {
@@ -290,6 +1099,49 @@ export default function AdminDashboardPage() {
   function handleEditTreatmentCancel() {
     setEditingTreatmentId(null);
     setTreatmentDraft("");
+  }
+
+  async function handlePreferredDateTimeUpdate(
+    id: string,
+    preferredDate: string,
+    preferredTime: string | null,
+  ): Promise<boolean> {
+    const previous = appointments.find((appointment) => appointment.id === id);
+    if (!previous) return false;
+
+    const nextDate = preferredDate || previous.preferred_date;
+    const nextTime = preferredTime && preferredTime.length > 0 ? preferredTime : null;
+
+    setBusyId(id);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("appointments")
+        .update({ preferred_date: nextDate, preferred_time: nextTime })
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error || !data) {
+        setBanner({ type: "error", message: ACTION_ERROR_MESSAGE });
+        return false;
+      }
+
+      const updated = data as Appointment;
+      setAppointments((current) =>
+        current.map((appointment) => (appointment.id === id ? updated : appointment)),
+      );
+      setBanner({
+        type: "success",
+        message: `Updated appointment date and time for ${updated.patient_name}.`,
+      });
+      return true;
+    } catch {
+      setBanner({ type: "error", message: ACTION_ERROR_MESSAGE });
+      return false;
+    } finally {
+      setBusyId(null);
+    }
   }
 
   async function handleEditTreatmentSave(id: string) {
@@ -505,27 +1357,141 @@ export default function AdminDashboardPage() {
     }
   }
 
+  /** Add a doctor (Admin Dashboard requirement 1). */
+  async function handleAddDoctor(values: NewDoctorValues) {
+    setIsSavingDoctor(true);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("doctors")
+        .insert({
+          name: values.name,
+          credentials: values.credentials || null,
+          specialty: values.specialty || null,
+          description: values.description || null,
+          experience: Number.isFinite(values.experience) ? Math.max(0, values.experience) : 0,
+        })
+        .select()
+        .single();
+
+      if (error || !data) {
+        console.error("[handleAddDoctor] Supabase error inserting into public.doctors", error);
+        setBanner({
+          type: "error",
+          message: error ? `Couldn't add doctor: ${error.message}` : ACTION_ERROR_MESSAGE,
+        });
+        return;
+      }
+
+      setDoctors((current) => [...current, data as Doctor]);
+      setBanner({ type: "success", message: `Added ${(data as Doctor).name}.` });
+    } catch (err) {
+      console.error("[handleAddDoctor] Unexpected error", err);
+      setBanner({ type: "error", message: ACTION_ERROR_MESSAGE });
+    } finally {
+      setIsSavingDoctor(false);
+    }
+  }
+
+  /**
+   * Remove a doctor. Deactivates (is_active = false) rather than deleting
+   * the row — a safe, reversible action. Nothing else in this project
+   * references a doctor by id (appointments don't store a doctor
+   * reference), so this can never corrupt appointment history.
+   */
+  async function handleRemoveDoctor(doctor: Doctor) {
+    setDoctorBusyId(doctor.id);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("doctors")
+        .update({ is_active: false })
+        .eq("id", doctor.id);
+
+      if (error) {
+        console.error("[handleRemoveDoctor] Supabase error updating public.doctors", error);
+        setBanner({ type: "error", message: `Couldn't remove doctor: ${error.message}` });
+      } else {
+        setDoctors((current) => current.filter((d) => d.id !== doctor.id));
+        setBanner({ type: "success", message: `Removed ${doctor.name}.` });
+      }
+    } catch (err) {
+      console.error("[handleRemoveDoctor] Unexpected error", err);
+      setBanner({ type: "error", message: ACTION_ERROR_MESSAGE });
+    } finally {
+      setDoctorBusyId(null);
+    }
+  }
+
+  /** Add a treatment (Admin Dashboard requirement 2). */
+  async function handleAddTreatment(name: string) {
+    setIsSavingTreatment(true);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("treatments")
+        .insert({ name })
+        .select()
+        .single();
+
+      if (error || !data) {
+        console.error("[handleAddTreatment] Supabase error inserting into public.treatments", error);
+        setBanner({
+          type: "error",
+          message: error ? `Couldn't add treatment: ${error.message}` : ACTION_ERROR_MESSAGE,
+        });
+        return;
+      }
+
+      setTreatments((current) => [...current, data as AdminTreatment]);
+      setBanner({ type: "success", message: `Added "${(data as AdminTreatment).name}".` });
+    } catch (err) {
+      console.error("[handleAddTreatment] Unexpected error", err);
+      setBanner({ type: "error", message: ACTION_ERROR_MESSAGE });
+    } finally {
+      setIsSavingTreatment(false);
+    }
+  }
+
+  /**
+   * Remove a treatment. Deactivates (is_active = false) rather than
+   * deleting the row. appointments.treatment stores the treatment name as
+   * plain text, not a reference to this table, so removing an option here
+   * never changes or corrupts any existing appointment's stored value.
+   */
+  async function handleRemoveTreatment(treatment: AdminTreatment) {
+    setTreatmentBusyId(treatment.id);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("treatments")
+        .update({ is_active: false })
+        .eq("id", treatment.id);
+
+      if (error) {
+        console.error("[handleRemoveTreatment] Supabase error updating public.treatments", error);
+        setBanner({ type: "error", message: `Couldn't remove treatment: ${error.message}` });
+      } else {
+        setTreatments((current) => current.filter((t) => t.id !== treatment.id));
+        setBanner({ type: "success", message: `Removed "${treatment.name}".` });
+      }
+    } catch (err) {
+      console.error("[handleRemoveTreatment] Unexpected error", err);
+      setBanner({ type: "error", message: ACTION_ERROR_MESSAGE });
+    } finally {
+      setTreatmentBusyId(null);
+    }
+  }
+
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 pb-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
-          <h1 className="font-display text-2xl text-ink">Appointments</h1>
-          <p className="text-sm text-ink/60">
+          <h1 className="admin-heading font-display text-2xl leading-tight text-[var(--admin-text)]">Appointments</h1>
+          <p className="text-sm text-[var(--admin-text-soft)]">
             Manage appointment requests submitted from the website.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setIsBinOpen(true)}
-          className="inline-flex items-center justify-center gap-1.5 rounded-full border border-line px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-canvas-soft"
-        >
-          🗑️ Recently Deleted
-          {archivedAppointments.length > 0 ? (
-            <span className="ml-1 inline-flex items-center justify-center rounded-full bg-canvas-soft px-2 py-0.5 text-xs font-semibold text-ink/70">
-              {archivedAppointments.length}
-            </span>
-          ) : null}
-        </button>
       </div>
 
       {loadState !== "loading" ? (
@@ -558,16 +1524,14 @@ export default function AdminDashboardPage() {
                   type="button"
                   onClick={() => setStatusFilter(card.key)}
                   aria-pressed={isActive}
-                  className={`rounded-card border p-4 text-left transition-colors focus:outline-none focus:ring-2 focus:ring-blue-600 ${
-                    isActive
-                      ? card.activeClasses
-                      : "border-line bg-canvas text-ink hover:bg-canvas-soft"
+                  className={`admin-status-card rounded-card border p-4 text-left transition-colors focus:outline-none focus:ring-2 focus:ring-blue-600 ${
+                    isActive ? "selected" : ""
                   }`}
                 >
-                  <div className="text-xs font-medium uppercase tracking-wide text-ink/60">
+                  <div className="admin-status-label text-xs font-medium uppercase tracking-wide">
                     {card.label}
                   </div>
-                  <div className="mt-1 text-2xl font-semibold">{card.count}</div>
+                  <div className="admin-status-value mt-1 text-2xl font-semibold">{card.count}</div>
                 </button>
               );
             })}
@@ -586,19 +1550,19 @@ export default function AdminDashboardPage() {
         </div>
       ) : null}
 
-      <div className="flex flex-col gap-3 rounded-card border border-line bg-canvas p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-2xl border border-line bg-[var(--admin-surface-strong)] p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
           <input
             type="text"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search by name or phone"
-            className="w-full rounded-lg border border-line bg-canvas px-4 py-2.5 text-sm text-ink placeholder:text-ink/40 focus:border-blue-600 focus:outline-none sm:max-w-xs"
+            className="w-full rounded-xl border border-line bg-[var(--admin-surface)] px-3.5 py-2.5 text-sm text-[var(--admin-text)] placeholder:text-[var(--admin-text-soft)] focus:border-blue-600 focus:outline-none sm:max-w-xs"
           />
           <select
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value as "all" | AppointmentStatus)}
-            className="rounded-lg border border-line bg-canvas px-4 py-2.5 text-sm text-ink focus:border-blue-600 focus:outline-none"
+            className="rounded-xl border border-line bg-[var(--admin-surface)] px-3.5 py-2.5 text-sm text-[var(--admin-text)] focus:border-blue-600 focus:outline-none"
           >
             <option value="all">All statuses</option>
             {APPOINTMENT_STATUSES.map((status) => (
@@ -606,6 +1570,7 @@ export default function AdminDashboardPage() {
                 {status}
               </option>
             ))}
+            <option value="no_show">No Show</option>
           </select>
           <select
             value={dateFilterMode}
@@ -614,7 +1579,7 @@ export default function AdminDashboardPage() {
               setDateFilterMode(mode);
               if (mode !== "custom") setCustomDate("");
             }}
-            className="rounded-lg border border-line bg-canvas px-4 py-2.5 text-sm text-ink focus:border-blue-600 focus:outline-none"
+            className="rounded-xl border border-line bg-[var(--admin-surface)] px-3.5 py-2.5 text-sm text-[var(--admin-text)] focus:border-blue-600 focus:outline-none"
           >
             {DATE_FILTER_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -627,7 +1592,7 @@ export default function AdminDashboardPage() {
               type="date"
               value={customDate}
               onChange={(event) => setCustomDate(event.target.value)}
-              className="rounded-lg border border-line bg-canvas px-4 py-2.5 text-sm text-ink focus:border-blue-600 focus:outline-none"
+              className="rounded-xl border border-line bg-[var(--admin-surface)] px-3.5 py-2.5 text-sm text-[var(--admin-text)] focus:border-blue-600 focus:outline-none"
             />
           ) : null}
         </div>
@@ -649,7 +1614,7 @@ export default function AdminDashboardPage() {
           <button
             type="button"
             onClick={() => setIsNewAppointmentOpen(true)}
-            className="inline-flex items-center justify-center whitespace-nowrap rounded-full bg-blue-900 px-4 py-2.5 text-sm font-semibold text-canvas transition-colors hover:bg-blue-800"
+            className="inline-flex items-center justify-center whitespace-nowrap rounded-full bg-blue-900 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-800"
           >
             + New Appointment
           </button>
@@ -678,19 +1643,28 @@ export default function AdminDashboardPage() {
             : "No appointments match your search or filters."}
         </div>
       ) : (
-        <AppointmentsTable
-          appointments={filteredAppointments}
-          busyId={busyId}
-          onStatusChange={handleStatusSelectChange}
-          onArchiveRequest={setPendingArchive}
-          onViewRequest={(appointment) => setViewingAppointmentId(appointment.id)}
-          editingTreatmentId={editingTreatmentId}
-          treatmentDraft={treatmentDraft}
-          onEditTreatmentStart={handleEditTreatmentStart}
-          onEditTreatmentCancel={handleEditTreatmentCancel}
-          onTreatmentDraftChange={setTreatmentDraft}
-          onEditTreatmentSave={handleEditTreatmentSave}
-        />
+        <>
+          <AppointmentsTable
+            appointments={paginatedAppointments}
+            busyId={busyId}
+            treatmentOptions={treatmentOptions}
+            onStatusChange={handleStatusSelectChange}
+            onArchiveRequest={setPendingArchive}
+            onViewRequest={(appointment) => setViewingAppointmentId(appointment.id)}
+            onPreferredDateTimeUpdate={handlePreferredDateTimeUpdate}
+            editingTreatmentId={editingTreatmentId}
+            treatmentDraft={treatmentDraft}
+            onEditTreatmentStart={handleEditTreatmentStart}
+            onEditTreatmentCancel={handleEditTreatmentCancel}
+            onTreatmentDraftChange={setTreatmentDraft}
+            onEditTreatmentSave={handleEditTreatmentSave}
+          />
+          <PaginationControls
+            currentPage={safeCurrentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
+        </>
       )}
 
       {confirmingAppointment ? (
@@ -716,8 +1690,10 @@ export default function AdminDashboardPage() {
           appointment={viewingAppointment}
           isBusy={busyId === viewingAppointment.id}
           busyId={busyId}
+          treatmentOptions={treatmentOptions}
           onClose={() => setViewingAppointmentId(null)}
           onStatusChange={handleStatusSelectChange}
+          onPreferredDateTimeUpdate={handlePreferredDateTimeUpdate}
           editingTreatmentId={editingTreatmentId}
           treatmentDraft={treatmentDraft}
           onEditTreatmentStart={handleEditTreatmentStart}
@@ -730,8 +1706,73 @@ export default function AdminDashboardPage() {
       {isNewAppointmentOpen ? (
         <NewAppointmentModal
           isSaving={isCreatingAppointment}
+          treatmentOptions={treatmentOptions}
           onCancel={() => setIsNewAppointmentOpen(false)}
           onSave={handleCreateAppointment}
+        />
+      ) : null}
+
+      {isDoctorsModalOpen ? (
+        <ManageDoctorsModal
+          doctors={doctors}
+          isLoading={doctorsLoadState === "loading"}
+          loadError={doctorsLoadState === "error"}
+          loadErrorMessage={doctorsLoadError}
+          busyId={doctorBusyId}
+          isSaving={isSavingDoctor}
+          onClose={() => setIsDoctorsModalOpen(false)}
+          onAdd={handleAddDoctor}
+          onRemove={handleRemoveDoctor}
+          onRetry={fetchDoctors}
+        />
+      ) : null}
+
+      {isTreatmentsModalOpen ? (
+        <ManageTreatmentsModal
+          treatments={treatments}
+          isLoading={treatmentsLoadState === "loading"}
+          loadError={treatmentsLoadState === "error"}
+          loadErrorMessage={treatmentsLoadError}
+          busyId={treatmentBusyId}
+          isSaving={isSavingTreatment}
+          onClose={() => setIsTreatmentsModalOpen(false)}
+          onAdd={handleAddTreatment}
+          onRemove={handleRemoveTreatment}
+          onRetry={fetchTreatments}
+        />
+      ) : null}
+
+      {isTestimonialsModalOpen ? (
+        <ManageTestimonialsModal
+          testimonials={testimonials}
+          isLoading={testimonialsLoadState === "loading"}
+          loadError={testimonialsLoadState === "error"}
+          loadErrorMessage={testimonialsLoadError}
+          busyId={testimonialBusyId}
+          isSaving={isSavingTestimonial}
+          onClose={() => setIsTestimonialsModalOpen(false)}
+          onAdd={handleAddTestimonial}
+          onRemove={handleRemoveTestimonial}
+          onUpdate={handleUpdateTestimonial}
+          onToggleActive={handleToggleTestimonialActive}
+          onRetry={fetchTestimonials}
+        />
+      ) : null}
+
+      {isClinicInfoModalOpen ? (
+        <ManageClinicInfoModal
+          settings={clinicSettings}
+          galleryImages={clinicGalleryImages}
+          isLoading={clinicSettingsLoadState === "loading" || clinicGalleryLoadState === "loading"}
+          isSaving={isSavingClinicInfo}
+          busyId={clinicInfoBusyId}
+          onClose={() => setIsClinicInfoModalOpen(false)}
+          onSaveSettings={handleSaveClinicSettings}
+          onAddGalleryImage={handleAddGalleryImage}
+          onReplaceGalleryImage={handleReplaceGalleryImage}
+          onRemoveGalleryImage={handleRemoveGalleryImage}
+          onReorderGalleryImage={handleReorderGalleryImage}
+          onToggleGalleryImageActive={handleToggleGalleryImageActive}
         />
       ) : null}
 

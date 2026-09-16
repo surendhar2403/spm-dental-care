@@ -1,7 +1,10 @@
-import type { SVGProps } from "react";
+"use client";
+
+import { useEffect, useState, type SVGProps } from "react";
 import Container from "@/components/ui/Container";
 import SectionHeading from "@/components/ui/SectionHeading";
-import { DENTAL_SPECIALISTS } from "@/lib/constants";
+import { createClient } from "@/lib/supabase/client";
+import type { PublicDoctor } from "@/types";
 
 /**
  * Small elegant line icons, one per specialty. Kept local to this section
@@ -45,20 +48,94 @@ function IconJaw(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+/**
+ * Icon lookup is keyed by SPECIALTY TEXT rather than a fixed doctor id.
+ * The doctor grid used to be a hardcoded array with hand-picked id slugs
+ * (e.g. "mohammed-ibrahim") that this map matched directly; now that
+ * doctors come from public.doctors, ids are database-generated UUIDs, so
+ * they can no longer be used as lookup keys. Matching on `specialty`
+ * instead keeps the exact same icon showing for the clinic's existing
+ * four specialists (their specialty text is unchanged), while any new
+ * specialty an admin adds later simply falls through to the IconGum
+ * default below — never a redesign, just a graceful fallback.
+ */
 const SPECIALTY_ICONS: Record<string, (props: SVGProps<SVGSVGElement>) => React.JSX.Element> = {
-  "mohammed-ibrahim": IconGum,
-  "sabiha-naz": IconAligner,
-  "saji-ravichandran": IconRoot,
-  abirami: IconJaw,
+  Periodontics: IconGum,
+  Orthodontics: IconAligner,
+  "Root Canal Care": IconRoot,
+  "Maxillofacial Surgery": IconJaw,
 };
+
+type DoctorsLoadState = "loading" | "loaded" | "error";
 
 /**
  * "Meet Our Dental Specialists" section. A simple, balanced 4-card grid —
  * every card shares identical size, background, and typography. No card
  * is featured or highlighted by default; the only state change is a
  * uniform hover lift applied equally to all four.
+ *
+ * The doctor list is loaded live from public.doctors (active doctors
+ * only, sort_order then created_at) — see fetchDoctors() below — instead
+ * of a hardcoded constant, so this section always reflects Admin ->
+ * Manage Doctors after a page refresh. Mirrors the same fetch pattern
+ * already used by the public "Book Appointment" form's treatment
+ * dropdown (see AppointmentForm.tsx's fetchTreatments()): anon Supabase
+ * client, explicit loading/error states, and no silent fallback to stale
+ * hardcoded data if the query fails.
  */
 export default function Dentist() {
+  const [doctors, setDoctors] = useState<PublicDoctor[]>([]);
+  const [loadState, setLoadState] = useState<DoctorsLoadState>("loading");
+
+  async function fetchDoctors() {
+    setLoadState("loading");
+
+    let supabase: ReturnType<typeof createClient>;
+    try {
+      supabase = createClient();
+    } catch (configError) {
+      // eslint-disable-next-line no-console
+      console.error("[dentist section] Supabase client could not be created:", configError);
+      setLoadState("error");
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("doctors")
+        .select("id, name, credentials, specialty, description, experience")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true });
+
+      if (error) {
+        // Full error detail (including RLS/permission errors) goes to the
+        // console for debugging; the UI only ever shows a generic,
+        // friendly error state — never a hardcoded fallback list.
+        // eslint-disable-next-line no-console
+        console.error("[dentist section] fetchDoctors Supabase error:", {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        });
+        setLoadState("error");
+        return;
+      }
+
+      setDoctors((data ?? []) as PublicDoctor[]);
+      setLoadState("loaded");
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("[dentist section] fetchDoctors unexpected error:", err);
+      setLoadState("error");
+    }
+  }
+
+  useEffect(() => {
+    fetchDoctors();
+  }, []);
+
   return (
     <section id="dentist" aria-labelledby="dentist-heading" className="py-14 sm:py-20">
       <Container className="flex flex-col gap-12">
@@ -69,53 +146,72 @@ export default function Dentist() {
           align="center"
         />
 
-        <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {DENTAL_SPECIALISTS.map((doctor) => {
-            const initials = doctor.name
-              .replace(/^Dr\.?\s*/i, "")
-              .split(" ")
-              .map((part) => part[0])
-              .join("")
-              .slice(0, 2)
-              .toUpperCase();
+        {loadState === "loading" ? (
+          <p className="text-center text-sm text-ink/60">Loading our specialists…</p>
+        ) : loadState === "error" ? (
+          <div className="flex flex-col items-center gap-3 text-center">
+            <p className="text-sm text-ink/60">
+              We couldn&apos;t load our specialists right now. Please try again in a moment.
+            </p>
+            <button
+              type="button"
+              onClick={fetchDoctors}
+              className="inline-flex items-center justify-center rounded-full bg-blue-900 px-5 py-2 text-xs font-semibold text-canvas transition-colors hover:bg-blue-800"
+            >
+              Retry
+            </button>
+          </div>
+        ) : doctors.length === 0 ? (
+          <p className="text-center text-sm text-ink/60">Specialist details coming soon.</p>
+        ) : (
+          <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {doctors.map((doctor) => {
+              const initials = doctor.name
+                .replace(/^Dr\.?\s*/i, "")
+                .split(" ")
+                .map((part) => part[0])
+                .join("")
+                .slice(0, 2)
+                .toUpperCase();
 
-            const Icon = SPECIALTY_ICONS[doctor.id] ?? IconGum;
+              const Icon = SPECIALTY_ICONS[doctor.specialty ?? ""] ?? IconGum;
 
-            return (
-              <li
-                key={doctor.id}
-                className="group flex flex-col items-center gap-4 rounded-card border border-line bg-canvas-soft p-7 text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md"
-              >
-                <span
-                  aria-hidden="true"
-                  className="flex h-12 w-12 flex-none items-center justify-center rounded-full bg-blue-100 text-blue-700 transition-colors duration-200 group-hover:bg-blue-700 group-hover:text-canvas"
+              return (
+                <li
+                  key={doctor.id}
+                  className="group flex flex-col items-center gap-4 rounded-card border border-line bg-canvas-soft p-7 text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md"
                 >
-                  <Icon className="h-6 w-6" />
-                </span>
-
-                <span
-                  aria-hidden="true"
-                  className="flex h-16 w-16 flex-none items-center justify-center rounded-full bg-blue-700 font-display text-xl text-canvas ring-2 ring-blue-100"
-                >
-                  {initials}
-                </span>
-
-                <div className="flex flex-col gap-1">
-                  <span className="font-display text-lg text-ink sm:text-xl">{doctor.name}</span>
-                  <span className="text-xs font-semibold uppercase tracking-[0.15em] text-gold-600">
-                    {doctor.credentials}
+                  <span
+                    aria-hidden="true"
+                    className="flex h-12 w-12 flex-none items-center justify-center rounded-full bg-blue-100 text-blue-700 transition-colors duration-200 group-hover:bg-blue-700 group-hover:text-canvas"
+                  >
+                    <Icon className="h-6 w-6" />
                   </span>
-                </div>
 
-                <span aria-hidden="true" className="h-px w-10 flex-none bg-line" />
+                  <span
+                    aria-hidden="true"
+                    className="flex h-16 w-16 flex-none items-center justify-center rounded-full bg-blue-700 font-display text-xl text-canvas ring-2 ring-blue-100"
+                  >
+                    {initials}
+                  </span>
 
-                <span className="text-sm font-medium text-blue-700">{doctor.specialty}</span>
+                  <div className="flex flex-col gap-1">
+                    <span className="font-display text-lg text-ink sm:text-xl">{doctor.name}</span>
+                    <span className="text-xs font-semibold uppercase tracking-[0.15em] text-gold-600">
+                      {doctor.credentials}
+                    </span>
+                  </div>
 
-                <p className="text-sm leading-relaxed text-ink/70">{doctor.description}</p>
-              </li>
-            );
-          })}
-        </ul>
+                  <span aria-hidden="true" className="h-px w-10 flex-none bg-line" />
+
+                  <span className="text-sm font-medium text-blue-700">{doctor.specialty}</span>
+
+                  <p className="text-sm leading-relaxed text-ink/70">{doctor.description}</p>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </Container>
     </section>
   );

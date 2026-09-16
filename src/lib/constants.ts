@@ -187,37 +187,6 @@ export const CLINIC_VALUES: ClinicValue[] = [
   },
 ];
 
-export const DENTAL_SPECIALISTS = [
-  {
-    id: "mohammed-ibrahim",
-    name: "Dr Mohammed Ibrahim",
-    credentials: "MDS",
-    specialty: "Periodontics",
-    description: "Cares for gum health and the supporting structures around your teeth.",
-  },
-  {
-    id: "sabiha-naz",
-    name: "Dr Sabiha Naz",
-    credentials: "MDS",
-    specialty: "Orthodontics",
-    description: "Aligns teeth and bite for a straighter, healthier smile.",
-  },
-  {
-    id: "saji-ravichandran",
-    name: "Dr Saji Ravichandran",
-    credentials: "BDS",
-    specialty: "Root Canal Care",
-    description: "Treats infected or damaged tooth pulp to relieve pain and save the tooth.",
-  },
-  {
-    id: "abirami",
-    name: "Dr Abirami",
-    credentials: "MDS",
-    specialty: "Maxillofacial Surgery",
-    description: "Handles surgical needs of the jaw, face, and mouth.",
-  },
-];
-
 export const GOOGLE_RATING = {
   score: 4.9,
   reviewCount: 14,

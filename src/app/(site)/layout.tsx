@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
+import BackToTop from "@/components/ui/BackToTop";
 import StructuredData from "@/components/StructuredData";
 import { AppointmentModalProvider } from "@/components/appointment/AppointmentModalContext";
 import AppointmentModal from "@/components/appointment/AppointmentModal";
@@ -39,6 +40,7 @@ export default function RootLayout({
           <main className="flex-1">{children}</main>
           <Footer />
           <AppointmentModal />
+          <BackToTop />
         </AppointmentModalProvider>
       </body>
     </html>

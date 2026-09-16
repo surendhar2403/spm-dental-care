@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, type ChangeEvent, type FormEvent } from "react";
-import { CONTACT, TREATMENTS } from "@/lib/constants";
+import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+import { CONTACT } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/client";
+import type { BookingTreatment } from "@/types";
 import {
   isValidIndianMobile,
   normalizeIndianMobile,
@@ -20,6 +21,16 @@ interface FormValues {
 type FormErrors = Partial<Record<keyof FormValues, string>>;
 
 type SubmissionState = "idle" | "submitting" | "error";
+
+/**
+ * Load state for the treatment dropdown's options, fetched live from
+ * public.treatments so the public site always reflects Admin -> Manage
+ * Treatments (see fetchTreatments() below). Deliberately no hardcoded
+ * list is ever used as a fallback here — on error the dropdown shows a
+ * visible error/retry state instead of silently falling back to stale
+ * data (which is what caused the sync bug this form used to have).
+ */
+type TreatmentsLoadState = "loading" | "loaded" | "error";
 
 const INITIAL_VALUES: FormValues = {
   name: "",
@@ -104,6 +115,69 @@ export default function AppointmentForm({
   // controls whether we show a "please message us on WhatsApp yourself"
   // fallback note in the success state below.
   const [whatsappOpened, setWhatsappOpened] = useState(true);
+
+  // Treatment dropdown options, loaded from public.treatments (not the old
+  // hardcoded TREATMENTS constant) so Admin -> Manage Treatments changes
+  // show up here after a page refresh. See fetchTreatments() below.
+  const [treatments, setTreatments] = useState<BookingTreatment[]>([]);
+  const [treatmentsState, setTreatmentsState] = useState<TreatmentsLoadState>("loading");
+
+  /**
+   * Fetches the public, active treatment list for the dropdown. Mirrors
+   * the same query shape the admin dashboard uses for this table (see
+   * fetchTreatments() in admin/(dashboard)/page.tsx) — is_active filter,
+   * sort_order then created_at ordering — but reads only the columns this
+   * form needs and runs as the anon role rather than an authenticated
+   * admin session.
+   */
+  async function fetchTreatments() {
+    setTreatmentsState("loading");
+
+    let supabase: ReturnType<typeof createClient>;
+    try {
+      supabase = createClient();
+    } catch (configError) {
+      // eslint-disable-next-line no-console
+      console.error("[appointment form] Supabase client could not be created:", configError);
+      setTreatmentsState("error");
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("treatments")
+        .select("id, name, sort_order, created_at")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true });
+
+      if (error) {
+        // Full error detail (including RLS/permission errors) goes to the
+        // console for debugging; the UI only ever shows a generic,
+        // friendly error/retry state — never a hardcoded fallback list.
+        // eslint-disable-next-line no-console
+        console.error("[appointment form] fetchTreatments Supabase error:", {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        });
+        setTreatmentsState("error");
+        return;
+      }
+
+      setTreatments((data ?? []) as BookingTreatment[]);
+      setTreatmentsState("loaded");
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("[appointment form] fetchTreatments unexpected error:", err);
+      setTreatmentsState("error");
+    }
+  }
+
+  useEffect(() => {
+    fetchTreatments();
+  }, []);
 
   function updateField<K extends keyof FormValues>(field: K, value: FormValues[K]) {
     setValues((current) => ({ ...current, [field]: value }));
@@ -214,7 +288,7 @@ export default function AppointmentForm({
   }
 
   const inputClasses =
-    "w-full rounded-lg border border-line bg-canvas px-4 py-2.5 text-sm text-ink placeholder:text-ink/40 focus:border-blue-600 focus:outline-none disabled:opacity-60";
+    "w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm text-ink placeholder:text-ink/40 focus:border-blue-600 focus:outline-none disabled:opacity-60";
   const inputErrorClasses = "border-red-500 focus:border-red-500";
   const errorTextClasses = "text-sm text-red-600";
 
@@ -259,18 +333,18 @@ export default function AppointmentForm({
       id={formId}
       onSubmit={handleSubmit}
       noValidate
-      className="flex w-full flex-col gap-5 rounded-card border border-line bg-canvas p-6 sm:p-8"
+      className="flex w-full flex-col gap-3 rounded-card border border-line bg-canvas p-4 sm:p-5"
       aria-labelledby={headingId}
     >
       <h3 id={headingId} className="font-display text-xl text-ink">
         Request an appointment
       </h3>
-      <p className="text-sm text-ink/60">
+      <p className="text-sm leading-relaxed text-ink/60">
         Choose your preferred date — this is a request, not a confirmed
         booking. We&apos;ll contact you to confirm the exact date and time.
       </p>
 
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
         <div className="flex flex-col gap-1.5">
           <label htmlFor={fieldId("name")} className="text-sm font-medium text-ink">
             Patient Name
@@ -333,22 +407,46 @@ export default function AppointmentForm({
             onChange={(event: ChangeEvent<HTMLSelectElement>) =>
               updateField("treatment", event.target.value)
             }
-            disabled={isSubmitting}
+            disabled={isSubmitting || treatmentsState !== "loaded"}
             aria-invalid={Boolean(errors.treatment)}
-            aria-describedby={errors.treatment ? fieldId("treatment-error") : undefined}
+            aria-describedby={
+              errors.treatment
+                ? fieldId("treatment-error")
+                : treatmentsState === "error"
+                  ? fieldId("treatment-load-error")
+                  : undefined
+            }
             className={`${inputClasses} ${errors.treatment ? inputErrorClasses : ""}`}
           >
-            <option value="">Select a treatment</option>
-            {TREATMENTS.map((item) => (
-              <option key={item.id} value={item.name}>
-                {item.name}
-              </option>
-            ))}
-            <option value="Other / Not sure">Other / Not sure</option>
+            <option value="">
+              {treatmentsState === "loading"
+                ? "Loading treatments…"
+                : treatmentsState === "error"
+                  ? "Treatments unavailable"
+                  : "Select a treatment"}
+            </option>
+            {treatmentsState === "loaded"
+              ? treatments.map((item) => (
+                  <option key={item.id} value={item.name}>
+                    {item.name}
+                  </option>
+                ))
+              : null}
           </select>
           {errors.treatment ? (
             <p id={fieldId("treatment-error")} className={errorTextClasses}>
               {errors.treatment}
+            </p>
+          ) : treatmentsState === "error" ? (
+            <p id={fieldId("treatment-load-error")} role="alert" className={errorTextClasses}>
+              We couldn&apos;t load the list of treatments.{" "}
+              <button
+                type="button"
+                onClick={fetchTreatments}
+                className="font-semibold underline underline-offset-2"
+              >
+                Try again
+              </button>
             </p>
           ) : null}
         </div>
@@ -386,13 +484,13 @@ export default function AppointmentForm({
           <textarea
             id={fieldId("message")}
             name="message"
-            rows={3}
+            rows={2}
             value={values.message}
             onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
               updateField("message", event.target.value)
             }
             disabled={isSubmitting}
-            className={inputClasses}
+            className={`${inputClasses} resize-none`}
           />
         </div>
       </div>
@@ -406,7 +504,7 @@ export default function AppointmentForm({
       <button
         type="submit"
         disabled={isSubmitting}
-        className="inline-flex items-center justify-center rounded-full bg-gold-600 px-6 py-3 text-sm font-semibold tracking-wide text-blue-900 transition-colors hover:bg-gold-500 disabled:cursor-not-allowed disabled:opacity-70"
+        className="inline-flex items-center justify-center rounded-full bg-gold-600 px-6 py-2.5 text-sm font-semibold tracking-wide text-blue-900 transition-colors hover:bg-gold-500 disabled:cursor-not-allowed disabled:opacity-70"
       >
         {isSubmitting ? "Confirming…" : "Confirm Appointment"}
       </button>

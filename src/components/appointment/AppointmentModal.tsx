@@ -64,14 +64,14 @@ export default function AppointmentModal() {
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-blue-900/60 p-4 py-10 backdrop-blur-sm sm:items-center sm:p-6"
+      className="fixed inset-0 z-[100] flex items-start justify-center overflow-hidden bg-blue-900/60 p-4 py-4 backdrop-blur-sm sm:items-center sm:p-5"
       onMouseDown={handleOverlayMouseDown}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby={MODAL_HEADING_ID}
-        className="relative w-full max-w-lg"
+        className="relative w-full max-w-[42rem]"
       >
         <button
           ref={closeButtonRef}
@@ -92,7 +92,7 @@ export default function AppointmentModal() {
           </svg>
         </button>
 
-        <div className="max-h-[85vh] overflow-y-auto rounded-card">
+        <div className="max-h-[calc(100vh-2rem)] overflow-hidden rounded-card">
           <AppointmentForm
             formId={MODAL_FORM_ID}
             headingId={MODAL_HEADING_ID}

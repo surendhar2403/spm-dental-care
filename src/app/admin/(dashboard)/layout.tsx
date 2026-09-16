@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import LogoutButton from "./LogoutButton";
+import AdminHeaderSettings from "./AdminHeaderSettings";
 
 /**
  * Wraps every page under /admin (dashboard, and any future admin pages)
@@ -37,16 +37,16 @@ export default async function AdminDashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-canvas-soft">
+    <div className="admin-shell min-h-screen bg-canvas-soft">
       <header className="border-b border-line bg-canvas">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
           <div>
-            <p className="font-display text-lg text-ink">SPM Dental Care</p>
+            <p className="admin-brand font-display text-lg text-ink">SPM Dental Care</p>
             <p className="text-xs text-ink/60">Admin Dashboard</p>
           </div>
-          <div className="flex items-center gap-4">
-            <span className="hidden text-sm text-ink/60 sm:inline">{user.email}</span>
-            <LogoutButton />
+          <div className="ml-auto flex items-center gap-3 pr-1 sm:pr-2">
+            <span className="hidden truncate text-sm text-ink/60 sm:inline">{user.email}</span>
+            <AdminHeaderSettings />
           </div>
         </div>
       </header>

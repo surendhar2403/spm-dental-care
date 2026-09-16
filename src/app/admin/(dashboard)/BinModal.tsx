@@ -2,7 +2,13 @@
 
 import { buildTelUrl, buildWhatsAppUrl } from "@/lib/utils";
 import type { Appointment } from "@/types/admin";
-import { STATUS_STYLES, formatCreatedAt, formatDate, formatTime } from "./appointmentDisplay";
+import {
+  STATUS_STYLES,
+  formatCreatedAt,
+  formatDate,
+  formatStatusLabel,
+  formatTime,
+} from "./appointmentDisplay";
 
 interface BinModalProps {
   appointments: Appointment[];
@@ -78,9 +84,9 @@ export default function BinModal({
                         {appointment.patient_name}
                       </span>
                       <span
-                        className={`flex-none rounded-full px-3 py-1.5 text-xs font-semibold capitalize ${STATUS_STYLES[appointment.status]}`}
+                        className={`flex-none rounded-full px-3 py-1.5 text-xs font-semibold ${STATUS_STYLES[appointment.status]}`}
                       >
-                        {appointment.status}
+                        {formatStatusLabel(appointment.status)}
                       </span>
                     </div>
 
@@ -210,9 +216,9 @@ export default function BinModal({
                           </td>
                           <td className="px-4 py-3 align-top">
                             <span
-                              className={`inline-flex items-center rounded-full px-3 py-1.5 text-xs font-semibold capitalize ${STATUS_STYLES[appointment.status]}`}
+                              className={`inline-flex items-center rounded-full px-3 py-1.5 text-xs font-semibold ${STATUS_STYLES[appointment.status]}`}
                             >
-                              {appointment.status}
+                              {formatStatusLabel(appointment.status)}
                             </span>
                           </td>
                           <td className="px-4 py-3 align-top text-ink/60">

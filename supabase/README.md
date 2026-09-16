@@ -38,3 +38,56 @@
    `public.appointments` — no new table, no RLS policy changes — and is
    required before the "+ New Appointment" button and "Recently Deleted"
    Bin will work. See the comments at the top of that file for details.
+
+8. **Doctors, Treatments, and No Show status.** Run
+   `admin_doctors_treatments_noshow.sql` once, after step 1 above (order
+   relative to step 7 doesn't matter). It creates two new tables —
+   `public.doctors` and `public.treatments` — seeded with the clinic's
+   existing doctors/treatments so "Manage Doctors" and "Manage Treatments"
+   in the dashboard aren't empty on first use, and widens
+   `public.appointments.status` to also allow `'no_show'` (used by the
+   "Mark No Show" action). No existing table, column, or row is dropped,
+   renamed, or modified. Required before "Manage Doctors", "Manage
+   Treatments", and "Mark No Show" will work — without it those features
+   will show a load/save error banner rather than breaking anything else.
+
+9. **If "Manage Doctors" / "Manage Treatments" still show a "Couldn't
+   load" error after step 8**, open the modal and check your browser's
+   console — the real Supabase error is now logged there and shown
+   directly in the modal, not hidden behind a generic message. If it says
+   `permission denied for table doctors` (or `treatments`), run
+   `fix_doctors_treatments_access.sql` — this is the same table-grant
+   issue already documented for `public.admins` in
+   `fix_admin_authorization.sql`, just on these two newer tables. If it
+   says the relation `does not exist`, step 8 hasn't actually been run
+   against this project yet — run `admin_doctors_treatments_noshow.sql`
+   first.
+
+10. **Public website treatment dropdown.** Run
+    `public_treatments_read_access.sql` once, after step 8 above. The
+    PUBLIC appointment form's treatment dropdown reads `public.treatments`
+    directly (active treatments only), but the table's only SELECT policy
+    from step 8 is admin-only (`to authenticated`) — the public site runs
+    as the `anon` role, which had no access at all. This file adds a
+    second, narrower SELECT policy + grant that lets anonymous visitors
+    read active treatments only; it does not change admin access,
+    `public.appointments`, or any existing row. Required before the
+    public "Book Appointment" form's treatment dropdown will populate —
+    without it, the dropdown shows a "Treatments unavailable" error
+    state instead of silently falling back to a hardcoded list. Open your
+    browser's console on the public site if the dropdown shows that error
+    to see the exact Supabase error.
+
+11. **Public website "Our Dental Specialists" section.** Run
+    `public_doctors_read_access.sql` once, after step 8 above. The PUBLIC
+    site's doctor grid reads `public.doctors` directly (active doctors
+    only), but the table's only SELECT policy from step 8 is admin-only
+    (`to authenticated`) — the public site runs as the `anon` role, which
+    had no access at all. This file adds a second, narrower SELECT policy
+    + grant that lets anonymous visitors read active doctors only; it
+    does not change admin access, appointment logic, or any existing row.
+    Required before the public "Our Dental Specialists" section will
+    populate — without it, the section shows a "couldn't load" error
+    state instead of silently falling back to a hardcoded list. Open your
+    browser's console on the public site if the section shows that error
+    to see the exact Supabase error.

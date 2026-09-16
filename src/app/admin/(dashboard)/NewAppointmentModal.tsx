@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { isValidIndianMobile } from "@/lib/utils";
-import { ADMIN_TREATMENT_OPTIONS, APPOINTMENT_STATUSES, type AppointmentStatus } from "@/types/admin";
+import { APPOINTMENT_STATUSES, type AppointmentStatus } from "@/types/admin";
 
 export interface NewAppointmentValues {
   patientName: string;
@@ -16,6 +16,7 @@ export interface NewAppointmentValues {
 
 interface NewAppointmentModalProps {
   isSaving: boolean;
+  treatmentOptions: string[];
   onCancel: () => void;
   onSave: (values: NewAppointmentValues) => void;
 }
@@ -43,6 +44,7 @@ const errorTextClasses = "text-xs text-red-600";
  */
 export default function NewAppointmentModal({
   isSaving,
+  treatmentOptions,
   onCancel,
   onSave,
 }: NewAppointmentModalProps) {
@@ -138,7 +140,7 @@ export default function NewAppointmentModal({
               aria-invalid={Boolean(errors.treatment)}
             >
               <option value="">Select a treatment</option>
-              {ADMIN_TREATMENT_OPTIONS.map((option) => (
+              {treatmentOptions.map((option) => (
                 <option key={option} value={option}>
                   {option}
                 </option>
