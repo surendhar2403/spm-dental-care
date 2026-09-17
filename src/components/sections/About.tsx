@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import Container from "@/components/ui/Container";
 import SmileDivider from "@/components/ui/SmileDivider";
 import { SITE } from "@/lib/constants";
@@ -14,7 +15,7 @@ export default function About() {
   return (
     <section id="about" aria-labelledby="about-heading" className="py-14 sm:py-20">
       <Container className="flex flex-col gap-12 lg:flex-row lg:items-center lg:gap-16">
-        <div className="relative mx-auto aspect-[4/5] w-full max-w-md flex-1 overflow-hidden rounded-card border border-line bg-canvas-soft lg:mx-0">
+        <div className="relative mx-auto aspect-[4/5] w-full max-w-[25rem] flex-1 overflow-hidden rounded-card border border-line bg-canvas-soft lg:mx-0">
           <Image
             src="/images/about-dental-treatment.jpg"
             alt="Dentist performing a dental treatment procedure"
@@ -50,8 +51,8 @@ export default function About() {
             Kattupakkam and Ponnamallee.
           </p>
 
-          <a
-            href="#treatments"
+          <Link
+            href="/about"
             className="group inline-flex w-fit items-center gap-2 text-sm font-semibold uppercase tracking-[0.15em] text-blue-700 transition-colors hover:text-gold-600"
           >
             Learn More
@@ -61,7 +62,7 @@ export default function About() {
             >
               →
             </span>
-          </a>
+          </Link>
         </div>
       </Container>
     </section>

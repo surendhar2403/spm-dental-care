@@ -29,21 +29,22 @@
   --font-hero: var(--font-oswald), ui-sans-serif, system-ui, sans-serif;
 
   /* Default admin palette: very light blue-gray background with subtle separation for cards and panels */
-  --color-ink: #16231f;
-  --color-canvas: #f1f6fa;
-  --color-canvas-soft: #eaf2f7;
-  --color-line: #d7e3ec;
+  --color-ink: #102c45;
+  --color-canvas: #d5e6e6;
+  --color-canvas-soft: #e5efef;
+  --color-line: #c4d9dc;
+  --color-card: #f7faf9;
 
   /* Deep blue — from the SPM Dental Care logo; trust, clinical calm, primary brand color */
-  --color-blue-900: #0a2540;
-  --color-blue-800: #123a5c;
-  --color-blue-700: #1b4f7a;
-  --color-blue-600: #2b6ca3;
-  --color-blue-100: #dce8f2;
+  --color-blue-900: #102c45;
+  --color-blue-800: #176b69;
+  --color-blue-700: #176b69;
+  --color-blue-600: #176b69;
+  --color-blue-100: #c5dcdc;
 
   /* Warm gold — the single accent, used sparingly for emphasis and the signature mark */
-  --color-gold-600: #a97f3a;
-  --color-gold-500: #c79a4b;
+  --color-gold-600: #b88935;
+  --color-gold-500: #b88935;
   --color-gold-100: #f1e3c8;
 
   --radius-card: 1.25rem;
@@ -437,6 +438,10 @@
     background-color: var(--admin-bg, var(--color-canvas));
     color: var(--admin-text, var(--color-ink));
     font-family: var(--font-sans);
+  }
+
+  body:not(:has(.admin-shell)) {
+    background-color: var(--color-canvas);
   }
 
   h1,

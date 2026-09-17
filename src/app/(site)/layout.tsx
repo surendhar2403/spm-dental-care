@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import BackToTop from "@/components/ui/BackToTop";
+import ScrollToothMascot from "@/components/ui/ScrollToothMascot";
 import StructuredData from "@/components/StructuredData";
 import { AppointmentModalProvider } from "@/components/appointment/AppointmentModalContext";
 import AppointmentModal from "@/components/appointment/AppointmentModal";
+import FloatingWhatsApp from "@/components/ui/FloatingWhatsApp";
 import { SITE } from "@/lib/constants";
 import "../globals.css";
 
@@ -40,7 +42,9 @@ export default function RootLayout({
           <main className="flex-1">{children}</main>
           <Footer />
           <AppointmentModal />
+          <FloatingWhatsApp />
           <BackToTop />
+          <ScrollToothMascot />
         </AppointmentModalProvider>
       </body>
     </html>

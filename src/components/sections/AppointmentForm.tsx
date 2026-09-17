@@ -91,6 +91,8 @@ interface AppointmentFormProps {
    * and again inside the Book Appointment modal) without clashing ids.
    */
   idPrefix?: string;
+  /** Visual treatment for the appointment modal without changing form behavior. */
+  appearance?: "default" | "modal";
 }
 
 /**
@@ -105,6 +107,7 @@ export default function AppointmentForm({
   formId = "appointment-form",
   headingId = "appointment-form-heading",
   idPrefix = "",
+  appearance = "default",
 }: AppointmentFormProps = {}) {
   const [values, setValues] = useState<FormValues>(INITIAL_VALUES);
   const [errors, setErrors] = useState<FormErrors>({});
@@ -294,6 +297,7 @@ export default function AppointmentForm({
 
   const fieldId = (name: string) => `${idPrefix}${name}`;
   const isSubmitting = submissionState === "submitting";
+  const isModalAppearance = appearance === "modal";
 
   if (isSubmitted) {
     return (
@@ -333,10 +337,10 @@ export default function AppointmentForm({
       id={formId}
       onSubmit={handleSubmit}
       noValidate
-      className="flex w-full flex-col gap-3 rounded-card border border-line bg-canvas p-4 sm:p-5"
+      className={`flex w-full flex-col gap-3 rounded-card border border-line p-4 sm:p-5 ${isModalAppearance ? "bg-[#F4FAF9] pt-7 shadow-[0_18px_50px_rgba(16,44,69,0.16)] sm:pt-8" : "bg-canvas"}`}
       aria-labelledby={headingId}
     >
-      <h3 id={headingId} className="font-display text-xl text-ink">
+      <h3 id={headingId} className={`font-display text-xl text-ink ${isModalAppearance ? "pr-12" : ""}`}>
         Request an appointment
       </h3>
       <p className="text-sm leading-relaxed text-ink/60">
@@ -504,7 +508,7 @@ export default function AppointmentForm({
       <button
         type="submit"
         disabled={isSubmitting}
-        className="inline-flex items-center justify-center rounded-full bg-gold-600 px-6 py-2.5 text-sm font-semibold tracking-wide text-blue-900 transition-colors hover:bg-gold-500 disabled:cursor-not-allowed disabled:opacity-70"
+        className={`inline-flex min-h-11 items-center justify-center rounded-full px-6 py-2.5 text-sm font-semibold tracking-wide transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-70 ${isModalAppearance ? "bg-[#176B69] text-white shadow-sm hover:bg-[#125957]" : "bg-gold-600 text-blue-900 hover:bg-gold-500"}`}
       >
         {isSubmitting ? "Confirming…" : "Confirm Appointment"}
       </button>

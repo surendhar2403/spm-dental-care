@@ -61,9 +61,11 @@ export default function AdminDashboardPage() {
   const [isBinOpen, setIsBinOpen] = useState(false);
   const [isNewAppointmentOpen, setIsNewAppointmentOpen] = useState(false);
   const [isCreatingAppointment, setIsCreatingAppointment] = useState(false);
-  const [banner, setBanner] = useState<{ type: "success" | "error"; message: string } | null>(
-    null,
-  );
+  const [banner, setBanner] = useState<{
+    type: "success" | "error";
+    message: string;
+    undo?: () => void;
+  } | null>(null);
 
   const [editingTreatmentId, setEditingTreatmentId] = useState<string | null>(null);
   const [treatmentDraft, setTreatmentDraft] = useState("");
@@ -255,7 +257,6 @@ export default function AdminDashboardPage() {
       const { data, error } = await supabase
         .from("treatments")
         .select("*")
-        .eq("is_active", true)
         .order("sort_order", { ascending: true })
         .order("created_at", { ascending: true });
 
@@ -300,7 +301,7 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     if (!banner) return;
-    const timer = setTimeout(() => setBanner(null), 4000);
+    const timer = setTimeout(() => setBanner(null), banner.undo ? 5000 : 4000);
     return () => clearTimeout(timer);
   }, [banner]);
 
@@ -1235,7 +1236,11 @@ export default function AdminDashboardPage() {
       );
       setBanner({
         type: "success",
-        message: `Moved appointment for ${target.patient_name} to Recently Deleted.`,
+        message: "Item deleted",
+        undo: () => {
+          setBanner(null);
+          void handleRestore(updated);
+        },
       });
     } catch (err) {
       console.error("[handleArchiveConfirmed] Unexpected error", err);
@@ -1413,10 +1418,41 @@ export default function AdminDashboardPage() {
         setBanner({ type: "error", message: `Couldn't remove doctor: ${error.message}` });
       } else {
         setDoctors((current) => current.filter((d) => d.id !== doctor.id));
-        setBanner({ type: "success", message: `Removed ${doctor.name}.` });
+        setBanner({
+          type: "success",
+          message: "Item deleted",
+          undo: () => {
+            setBanner(null);
+            void handleRestoreDoctor(doctor);
+          },
+        });
       }
     } catch (err) {
       console.error("[handleRemoveDoctor] Unexpected error", err);
+      setBanner({ type: "error", message: ACTION_ERROR_MESSAGE });
+    } finally {
+      setDoctorBusyId(null);
+    }
+  }
+
+  async function handleRestoreDoctor(doctor: Doctor) {
+    setDoctorBusyId(doctor.id);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("doctors")
+        .update({ is_active: true })
+        .eq("id", doctor.id);
+
+      if (error) {
+        setBanner({ type: "error", message: ACTION_ERROR_MESSAGE });
+      } else {
+        setDoctors((current) =>
+          [...current, { ...doctor, is_active: true }].sort((a, b) => a.sort_order - b.sort_order),
+        );
+        setBanner({ type: "success", message: "Item restored" });
+      }
+    } catch {
       setBanner({ type: "error", message: ACTION_ERROR_MESSAGE });
     } finally {
       setDoctorBusyId(null);
@@ -1454,10 +1490,10 @@ export default function AdminDashboardPage() {
   }
 
   /**
-   * Remove a treatment. Deactivates (is_active = false) rather than
-   * deleting the row. appointments.treatment stores the treatment name as
-   * plain text, not a reference to this table, so removing an option here
-   * never changes or corrupts any existing appointment's stored value.
+   * Permanently remove a treatment row from public.treatments.
+   * appointments.treatment stores the treatment name as plain text, so
+   * deleting this option here only removes it from future choices and does
+   * not mutate historical appointment records.
    */
   async function handleRemoveTreatment(treatment: AdminTreatment) {
     setTreatmentBusyId(treatment.id);
@@ -1465,18 +1501,44 @@ export default function AdminDashboardPage() {
       const supabase = createClient();
       const { error } = await supabase
         .from("treatments")
-        .update({ is_active: false })
+        .delete()
         .eq("id", treatment.id);
 
       if (error) {
-        console.error("[handleRemoveTreatment] Supabase error updating public.treatments", error);
+        console.error("[handleRemoveTreatment] Supabase error deleting from public.treatments", error);
         setBanner({ type: "error", message: `Couldn't remove treatment: ${error.message}` });
       } else {
         setTreatments((current) => current.filter((t) => t.id !== treatment.id));
-        setBanner({ type: "success", message: `Removed "${treatment.name}".` });
+        setBanner({ type: "success", message: `Deleted "${treatment.name}".` });
       }
     } catch (err) {
       console.error("[handleRemoveTreatment] Unexpected error", err);
+      setBanner({ type: "error", message: ACTION_ERROR_MESSAGE });
+    } finally {
+      setTreatmentBusyId(null);
+    }
+  }
+
+  async function handleSaveTreatment(treatment: AdminTreatment, price: number | null, isActive: boolean) {
+    setTreatmentBusyId(treatment.id);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("treatments")
+        .update({ price, is_active: isActive })
+        .eq("id", treatment.id)
+        .select()
+        .single();
+
+      if (error || !data) {
+        setBanner({ type: "error", message: error ? `Couldn't save treatment: ${error.message}` : ACTION_ERROR_MESSAGE });
+        return;
+      }
+
+      setTreatments((current) => current.map((item) => item.id === treatment.id ? data as AdminTreatment : item));
+      setBanner({ type: "success", message: `Saved "${treatment.name}".` });
+    } catch (err) {
+      console.error("[handleSaveTreatment] Unexpected error", err);
       setBanner({ type: "error", message: ACTION_ERROR_MESSAGE });
     } finally {
       setTreatmentBusyId(null);
@@ -1540,13 +1602,22 @@ export default function AdminDashboardPage() {
       {banner ? (
         <div
           role="status"
-          className={`rounded-lg border px-4 py-3 text-sm ${
+          className={`${banner.undo ? "fixed bottom-4 left-4 right-4 z-50 mx-auto flex max-w-md items-center justify-between gap-4 shadow-lg" : ""} rounded-lg border px-4 py-3 text-sm ${
             banner.type === "success"
               ? "border-emerald-200 bg-emerald-50 text-emerald-700"
               : "border-red-200 bg-red-50 text-red-600"
           }`}
         >
-          {banner.message}
+          <span>{banner.message}</span>
+          {banner.undo ? (
+            <button
+              type="button"
+              onClick={banner.undo}
+              className="shrink-0 font-semibold underline underline-offset-2 transition-opacity hover:opacity-75"
+            >
+              Undo
+            </button>
+          ) : null}
         </div>
       ) : null}
 
@@ -1738,6 +1809,7 @@ export default function AdminDashboardPage() {
           onClose={() => setIsTreatmentsModalOpen(false)}
           onAdd={handleAddTreatment}
           onRemove={handleRemoveTreatment}
+          onSave={handleSaveTreatment}
           onRetry={fetchTreatments}
         />
       ) : null}

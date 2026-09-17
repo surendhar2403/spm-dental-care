@@ -71,14 +71,14 @@ export default function AppointmentModal() {
         role="dialog"
         aria-modal="true"
         aria-labelledby={MODAL_HEADING_ID}
-        className="relative w-full max-w-[42rem]"
+        className="relative max-h-[90vh] w-full max-w-[42rem]"
       >
         <button
           ref={closeButtonRef}
           type="button"
           onClick={closeModal}
           aria-label="Close appointment form"
-          className="absolute -top-3 -right-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full border border-line bg-canvas text-ink shadow-md transition-colors hover:bg-canvas-soft focus-visible:outline-none"
+          className="absolute right-4 top-4 z-20 inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#B8D2D4] bg-[#E1F0EF] text-[#176B69] shadow-sm transition-colors duration-200 hover:bg-[#176B69] hover:text-white focus-visible:outline-none sm:right-5 sm:top-5"
         >
           <svg
             aria-hidden="true"
@@ -92,11 +92,12 @@ export default function AppointmentModal() {
           </svg>
         </button>
 
-        <div className="max-h-[calc(100vh-2rem)] overflow-hidden rounded-card">
+        <div className="max-h-[90vh] overflow-y-auto rounded-[1.5rem]">
           <AppointmentForm
             formId={MODAL_FORM_ID}
             headingId={MODAL_HEADING_ID}
             idPrefix="modal-"
+            appearance="modal"
           />
         </div>
       </div>

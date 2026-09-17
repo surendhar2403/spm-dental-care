@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { AdminTreatment } from "@/types/admin";
 
 interface ManageTreatmentsModalProps {
@@ -15,6 +15,7 @@ interface ManageTreatmentsModalProps {
   onClose: () => void;
   onAdd: (name: string) => void;
   onRemove: (treatment: AdminTreatment) => void;
+  onSave: (treatment: AdminTreatment, price: number | null, isActive: boolean) => void;
   onRetry?: () => void;
 }
 
@@ -40,11 +41,20 @@ export default function ManageTreatmentsModal({
   onClose,
   onAdd,
   onRemove,
+  onSave,
   onRetry,
 }: ManageTreatmentsModalProps) {
   const [name, setName] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [drafts, setDrafts] = useState<Record<string, { price: string; isActive: boolean }>>({});
+
+  useEffect(() => {
+    setDrafts(Object.fromEntries(treatments.map((treatment) => [treatment.id, {
+      price: treatment.price === null || treatment.price === undefined ? "" : String(treatment.price),
+      isActive: treatment.is_active,
+    }])));
+  }, [treatments]);
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -154,13 +164,29 @@ export default function ManageTreatmentsModal({
               {treatments.map((treatment) => {
                 const isBusy = busyId === treatment.id;
                 const isConfirming = confirmingId === treatment.id;
+                const draft = drafts[treatment.id] ?? { price: "", isActive: treatment.is_active };
 
                 return (
                   <li
                     key={treatment.id}
-                    className="flex flex-col gap-2 rounded-card border border-line bg-canvas p-3 sm:flex-row sm:items-center sm:justify-between"
+                    className="flex flex-col gap-3 rounded-card border border-line bg-canvas p-3"
                   >
-                    <span className="truncate font-medium text-ink">{treatment.name}</span>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="truncate font-medium text-ink">{treatment.name}</span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setConfirmingId(treatment.id)}
+                          disabled={busyId !== null}
+                          className="text-xs font-medium text-red-600 transition-colors hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Delete
+                        </button>
+                        <span className={`rounded-full px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-wide ${draft.isActive ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
+                          {draft.isActive ? "Active" : "Inactive"}
+                        </span>
+                      </div>
+                    </div>
                     {isConfirming ? (
                       <div className="flex flex-none flex-wrap items-center gap-2">
                         <span className="text-xs text-ink/70">Remove this treatment?</span>
@@ -184,16 +210,52 @@ export default function ManageTreatmentsModal({
                           Cancel
                         </button>
                       </div>
-                    ) : (
+                    ) : null}
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto_auto] sm:items-end">
+                      <label className="flex flex-col gap-1 text-xs font-medium text-ink/70">
+                        Price (INR)
+                        <input
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          inputMode="decimal"
+                          value={draft.price}
+                          disabled={isBusy}
+                          onChange={(event) => setDrafts((current) => ({ ...current, [treatment.id]: { ...draft, price: event.target.value } }))}
+                          className={inputClasses}
+                          placeholder="Optional"
+                        />
+                      </label>
+
                       <button
                         type="button"
-                        onClick={() => setConfirmingId(treatment.id)}
-                        disabled={busyId !== null}
-                        className="flex-none text-xs font-medium text-red-600 hover:underline disabled:cursor-not-allowed disabled:text-ink/40 disabled:no-underline"
+                        disabled={isBusy}
+                        aria-label={draft.isActive ? "Deactivate treatment" : "Activate treatment"}
+                        onClick={() => setDrafts((current) => ({ ...current, [treatment.id]: { ...draft, isActive: !draft.isActive } }))}
+                        className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors duration-200 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 ${draft.isActive ? "bg-emerald-500" : "bg-slate-300"}`}
                       >
-                        Remove
+                        <span
+                          className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform duration-200 ${draft.isActive ? "translate-x-6" : "translate-x-1"}`}
+                        />
                       </button>
-                    )}
+
+                      <button
+                        type="button"
+                        disabled={isBusy}
+                        onClick={() => {
+                          const parsed = draft.price.trim() === "" ? null : Number(draft.price);
+                          if (parsed !== null && (!Number.isFinite(parsed) || parsed <= 0)) {
+                            setFormError("Price must be a positive number.");
+                            return;
+                          }
+                          setFormError(null);
+                          onSave(treatment, parsed, draft.isActive);
+                        }}
+                        className="inline-flex h-10 items-center justify-center rounded-full bg-blue-900 px-4 text-xs font-semibold text-canvas transition-colors hover:bg-blue-800 disabled:opacity-60"
+                      >
+                        {isBusy ? "Saving…" : "Save"}
+                      </button>
+                    </div>
                   </li>
                 );
               })}

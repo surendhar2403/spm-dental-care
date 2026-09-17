@@ -101,6 +101,7 @@ export interface Doctor {
 export interface AdminTreatment {
   id: string;
   name: string;
+  price: number | null;
   is_active: boolean;
   sort_order: number;
   created_at: string;

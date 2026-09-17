@@ -19,7 +19,7 @@ export default function SectionHeading({
   id,
 }: SectionHeadingProps) {
   const alignment = align === "center" ? "items-center text-center mx-auto" : "items-start text-left";
-  const eyebrowColor = inverted ? "text-gold-500" : "text-blue-600";
+  const eyebrowColor = inverted ? "text-gold-500" : "text-blue-700";
   const titleColor = inverted ? "text-canvas" : "text-ink";
   const descriptionColor = inverted ? "text-canvas/80" : "text-ink/70";
 

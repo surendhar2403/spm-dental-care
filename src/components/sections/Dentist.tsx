@@ -137,7 +137,7 @@ export default function Dentist() {
   }, []);
 
   return (
-    <section id="dentist" aria-labelledby="dentist-heading" className="py-14 sm:py-20">
+    <section id="dentist" aria-labelledby="dentist-heading" className="bg-canvas py-14 sm:py-20">
       <Container className="flex flex-col gap-12">
         <SectionHeading
           id="dentist-heading"
@@ -179,7 +179,7 @@ export default function Dentist() {
               return (
                 <li
                   key={doctor.id}
-                  className="group flex flex-col items-center gap-4 rounded-card border border-line bg-canvas-soft p-7 text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md"
+                  className="group flex flex-col items-center gap-4 rounded-card border border-line bg-card p-7 text-center shadow-[0_8px_30px_rgba(16,44,69,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-md"
                 >
                   <span
                     aria-hidden="true"

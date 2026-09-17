@@ -15,7 +15,7 @@ export default function AppointmentCTA() {
     <section
       id="appointment"
       aria-labelledby="appointment-heading"
-      className="bg-blue-900 py-14 text-canvas sm:py-16"
+      className="relative isolate overflow-hidden bg-blue-700 py-14 text-white sm:py-16"
     >
       <Container className="flex flex-col gap-12 lg:flex-row lg:items-start lg:gap-16">
         <div className="flex flex-1 flex-col gap-6">

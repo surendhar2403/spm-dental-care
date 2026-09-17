@@ -53,7 +53,7 @@ export default function LocationHours() {
     <section
       id="location"
       aria-labelledby="location-heading"
-      className="bg-canvas-soft py-14 sm:py-20"
+      className="bg-[#C5DCDC] py-14 sm:py-20"
     >
       <Container className="flex flex-col gap-12 lg:flex-row lg:items-start lg:gap-16">
         <div className="flex flex-1 flex-col gap-8">
@@ -89,7 +89,7 @@ export default function LocationHours() {
           </div>
         </div>
 
-        <div className="w-full flex-1 overflow-hidden rounded-card border border-line">
+        <div className="w-full flex-1 overflow-hidden rounded-card border border-line bg-card p-2 shadow-[0_8px_30px_rgba(16,44,69,0.06)]">
           <iframe
             title="SPM Dental Care location on Google Maps"
             src={mapsEmbedSrc}

@@ -122,10 +122,14 @@ where not exists (select 1 from public.doctors d where d.name = v.name);
 create table if not exists public.treatments (
   id uuid primary key default gen_random_uuid(),
   name text not null unique,
+  price numeric(10, 2),
   is_active boolean not null default true,
   sort_order integer not null default 0,
   created_at timestamptz not null default now()
 );
+
+alter table public.treatments
+  add column if not exists price numeric(10, 2);
 
 comment on table public.treatments is
   'Admin-managed treatment option list, used by the "+ New Appointment" '
@@ -133,6 +137,9 @@ comment on table public.treatments is
   'appointments.treatment stores the chosen name as plain text, not a '
   'foreign key to this table, so editing/removing a treatment here never '
   'changes any existing appointment''s stored value.';
+
+comment on column public.treatments.price is
+  'Optional treatment amount in Indian rupees. NULL means no configured price.';
 
 alter table public.treatments enable row level security;
 

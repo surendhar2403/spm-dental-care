@@ -67,8 +67,8 @@ export default function HeroSlider() {
         </div>
       ))}
 
-      {/* Dark overlay so the headline and buttons stay readable over any photo */}
-      <div className="absolute inset-0 bg-gradient-to-t from-blue-900/90 via-blue-900/55 to-blue-900/35" />
+      {/* Light left-to-right veil keeps the copy readable while preserving every slide. */}
+      <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(247,250,249,0.96)_0%,rgba(247,250,249,0.86)_34%,rgba(247,250,249,0.38)_58%,rgba(16,44,69,0.08)_100%),linear-gradient(0deg,rgba(16,44,69,0.2),transparent_36%)]" />
 
       {/* Slide indicators */}
       <div className="absolute bottom-6 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 sm:bottom-8">

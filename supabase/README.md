@@ -91,3 +91,11 @@
     state instead of silently falling back to a hardcoded list. Open your
     browser's console on the public site if the section shows that error
     to see the exact Supabase error.
+
+12. **Treatment pricing and visibility.** Run `treatment_pricing.sql` after
+   step 10. It adds the nullable numeric `price` column to the existing
+   `public.treatments` table without changing any IDs or rows, refreshes the
+   PostgREST schema cache, and includes a verification query. The admin
+   Manage Treatments modal then persists numeric prices and `is_active`;
+   the public Treatments section displays configured INR prices and only
+   active rows. Leave price empty for treatments without a configured amount.

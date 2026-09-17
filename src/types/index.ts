@@ -7,6 +7,7 @@ export interface Treatment {
   id: string;
   name: string;
   description: string;
+  price?: number | null;
 }
 
 /**
@@ -21,6 +22,7 @@ export interface Treatment {
 export interface BookingTreatment {
   id: string;
   name: string;
+  price?: number | null;
 }
 
 /**
