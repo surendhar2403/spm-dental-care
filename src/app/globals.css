@@ -67,6 +67,7 @@
     --admin-bg: var(--color-canvas);
     --admin-surface: var(--color-canvas-soft);
     --admin-surface-strong: #ffffff;
+    --admin-row-hover-bg: color-mix(in srgb, var(--admin-status-selected-border) 14%, transparent);
     --admin-border: var(--color-line);
     --admin-text: #12304a;
     --admin-text-soft: #5d7288;
@@ -175,6 +176,7 @@
     --color-canvas: #172236;
     --color-canvas-soft: #1d2b3d;
     --color-line: #334155;
+    --admin-row-hover-bg: color-mix(in srgb, var(--admin-link) 20%, var(--admin-surface-strong));
     --admin-bg: #0f172a;
     --admin-surface: #172236;
     --admin-surface-strong: #1d2b3d;
@@ -190,7 +192,6 @@
     --admin-danger: #fca5a5;
     --admin-shadow: rgba(15, 23, 42, 0.38);
     --admin-status-selected-bg: #dfeaf6;
-    --admin-status-selected-border: #93c5fd;
     --admin-status-selected-text: #0f172a;
     color-scheme: dark;
   }
@@ -199,6 +200,237 @@
     --admin-heading-color: var(--admin-heading);
     --admin-primary-text: var(--admin-text);
     --admin-secondary-text: var(--admin-text-soft);
+  }
+
+  .admin-settings-icon-button {
+    display: inline-flex;
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
+    border-radius: 0.625rem;
+    transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
+  }
+
+  .admin-settings-icon-button:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+
+  .admin-settings-icon-button:focus-visible {
+    outline: 2px solid var(--admin-link);
+    outline-offset: 2px;
+  }
+
+  .admin-settings-icon-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  .admin-selection-checkbox {
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+    margin: 0;
+    cursor: pointer;
+    border: 1.5px solid color-mix(in srgb, var(--admin-link) 38%, var(--admin-border));
+    border-radius: 0.4rem;
+    background: var(--admin-surface-strong);
+    box-shadow: 0 1px 2px var(--admin-shadow), inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+    transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+  }
+
+  .admin-selection-checkbox:hover {
+    border-color: var(--admin-link);
+    background: color-mix(in srgb, var(--admin-link) 6%, var(--admin-surface-strong));
+  }
+
+  .admin-selection-checkbox:checked,
+  .admin-selection-checkbox:indeterminate {
+    border-color: var(--admin-link);
+    background-color: var(--admin-link);
+    box-shadow: 0 2px 5px color-mix(in srgb, var(--admin-link) 28%, transparent), inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 12px 12px;
+  }
+
+  .admin-selection-checkbox:checked {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m3 8 3 3 7-7'/%3E%3C/svg%3E");
+  }
+
+  .admin-selection-checkbox:indeterminate {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round'%3E%3Cpath d='M3 8h10'/%3E%3C/svg%3E");
+  }
+
+  .admin-selection-checkbox:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--admin-link) 55%, transparent);
+    outline-offset: 2px;
+  }
+
+  .admin-selection-checkbox:active {
+    transform: scale(0.94);
+  }
+
+  .admin-settings-icon-button svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  .admin-settings-icon-button-neutral {
+    color: var(--admin-link);
+    background: color-mix(in srgb, var(--admin-link) 10%, var(--admin-surface-strong));
+    border-color: color-mix(in srgb, var(--admin-link) 26%, var(--admin-border));
+  }
+
+  .admin-settings-icon-button-neutral:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--admin-link) 18%, var(--admin-surface-strong));
+  }
+
+  .admin-settings-icon-button-danger {
+    color: var(--admin-danger);
+    background: color-mix(in srgb, var(--admin-danger) 9%, var(--admin-surface-strong));
+    border-color: color-mix(in srgb, var(--admin-danger) 24%, var(--admin-border));
+  }
+
+  .admin-settings-icon-button-danger:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--admin-danger) 16%, var(--admin-surface-strong));
+  }
+
+  .admin-settings-icon-button-success {
+    color: var(--admin-success);
+    background: color-mix(in srgb, var(--admin-success) 9%, var(--admin-surface-strong));
+    border-color: color-mix(in srgb, var(--admin-success) 24%, var(--admin-border));
+  }
+
+  .admin-settings-icon-button-success:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--admin-success) 16%, var(--admin-surface-strong));
+  }
+
+  .admin-settings-icon-button-warning {
+    color: var(--admin-warning);
+    background: color-mix(in srgb, var(--admin-warning) 10%, var(--admin-surface-strong));
+    border-color: color-mix(in srgb, var(--admin-warning) 25%, var(--admin-border));
+  }
+
+  .admin-settings-icon-button-warning:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--admin-warning) 17%, var(--admin-surface-strong));
+  }
+
+  .admin-patient-drawer {
+    animation: admin-patient-drawer-in 220ms ease-out both;
+  }
+
+  @keyframes admin-patient-drawer-in {
+    from {
+      opacity: 0;
+      transform: translateX(100%);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @media (max-width: 639px) {
+    .admin-patient-drawer {
+      max-width: none;
+    }
+  }
+
+  .admin-dashboard-header {
+    border-bottom: 1px solid rgba(147, 197, 253, 0.42);
+    background: linear-gradient(112deg, rgba(30, 64, 120, 0.92), rgba(37, 99, 160, 0.82) 48%, rgba(8, 47, 73, 0.9));
+    box-shadow: 0 8px 24px rgba(15, 55, 105, 0.22);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+  }
+
+  .admin-dashboard-header-highlight {
+    background: radial-gradient(circle at 18% -40%, rgba(186, 230, 253, 0.24), transparent 42%), linear-gradient(180deg, rgba(255, 255, 255, 0.1), transparent 65%);
+  }
+
+  .admin-dashboard-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .admin-dashboard-control {
+    border: 1px solid rgba(191, 219, 254, 0.45);
+    background: rgba(30, 64, 120, 0.34);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 4px 12px rgba(7, 38, 84, 0.16);
+  }
+
+  .admin-dashboard-control:hover {
+    border-color: rgba(219, 234, 254, 0.78);
+    background: rgba(59, 130, 246, 0.38);
+  }
+
+  .admin-dashboard-menu {
+    border-color: rgba(96, 165, 250, 0.48) !important;
+    background: rgba(219, 234, 254, 0.94) !important;
+    box-shadow: 0 14px 32px rgba(15, 55, 105, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+  }
+
+  .admin-dashboard-menu button {
+    color: #12345a !important;
+  }
+
+  .admin-dashboard-menu button:hover {
+    background: rgba(147, 197, 253, 0.38) !important;
+  }
+
+  .admin-dashboard-menu .admin-logout-menu-item {
+    color: var(--admin-danger) !important;
+  }
+
+  .admin-dashboard-menu .admin-logout-menu-item:hover {
+    background: color-mix(in srgb, var(--admin-danger) 12%, transparent) !important;
+  }
+
+  .admin-dashboard-menu .admin-logout-icon {
+    color: var(--admin-danger) !important;
+  }
+
+  .admin-dashboard-menu .bg-line {
+    background-color: rgba(96, 165, 250, 0.35) !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-dashboard-header {
+    border-bottom-color: rgba(125, 211, 252, 0.38);
+    background: linear-gradient(112deg, rgba(7, 24, 58, 0.94), rgba(15, 52, 105, 0.86) 48%, rgba(6, 35, 64, 0.94));
+    box-shadow: 0 8px 24px rgba(2, 12, 35, 0.42);
+  }
+
+  html[data-admin-dark-mode="true"] .admin-dashboard-header-highlight {
+    background: radial-gradient(circle at 18% -40%, rgba(103, 232, 249, 0.2), transparent 42%), linear-gradient(180deg, rgba(191, 219, 254, 0.1), transparent 65%);
+  }
+
+  html[data-admin-dark-mode="true"] .admin-dashboard-menu {
+    border-color: rgba(96, 165, 250, 0.46) !important;
+    background: rgba(7, 24, 58, 0.94) !important;
+    box-shadow: 0 14px 32px rgba(2, 12, 35, 0.42), inset 0 1px 0 rgba(147, 197, 253, 0.2) !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-dashboard-menu button {
+    color: #e0f2fe !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-dashboard-menu button:hover {
+    background: rgba(37, 99, 160, 0.42) !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-dashboard-menu .admin-logout-menu-item {
+    color: var(--admin-danger) !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-dashboard-menu .admin-logout-menu-item:hover {
+    background: color-mix(in srgb, var(--admin-danger) 18%, transparent) !important;
   }
 
   .admin-shell .admin-brand,
@@ -219,6 +451,10 @@
   .admin-table-header,
   th {
     color: var(--admin-heading-color) !important;
+  }
+
+  .admin-shell .admin-brand {
+    color: #ffffff !important;
   }
 
   .admin-shell .text-ink,
@@ -398,6 +634,137 @@
     color: var(--admin-status-selected-text);
   }
 
+  .admin-appointments-table {
+    background: #ffffff;
+    border-color: #dbe7f0;
+  }
+
+  .admin-appointments-header {
+    border-color: color-mix(in srgb, var(--admin-status-selected-border) 30%, var(--admin-border));
+  }
+
+  .admin-appointments-header > tr > th {
+    background-color: color-mix(in srgb, var(--admin-status-selected-border) 10%, var(--admin-surface-strong)) !important;
+  }
+
+  .admin-appointments-header > tr > th:first-child {
+    border-top-left-radius: 0.875rem;
+  }
+
+  .admin-appointments-header > tr > th:last-child {
+    border-top-right-radius: 0.875rem;
+  }
+
+  .admin-action-toast {
+    border-color: rgba(255, 255, 255, 0.7);
+    background-color: rgba(0, 0, 0, 0.82);
+    color: #ffffff;
+  }
+
+  .admin-action-toast-icon {
+    background-color: #22c55e;
+    color: #ffffff;
+  }
+
+  .appointment-date-input {
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  @media (max-width: 639px) {
+    .appointment-date-input::-webkit-datetime-edit {
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .appointment-date-input::-webkit-date-and-time-value {
+      min-width: 0;
+    }
+
+    .appointment-date-input::-webkit-calendar-picker-indicator {
+      margin-left: 0;
+    }
+  }
+
+  .admin-appointment-row {
+    border-color: #e8f0f5;
+    transition: background-color 160ms ease;
+  }
+
+  .admin-appointment-row:hover,
+  .admin-appointment-card:hover {
+    background-color: #f7fbfe;
+  }
+
+  .admin-appointment-card {
+    border-color: #dbe7f0;
+    transition: background-color 160ms ease, border-color 160ms ease;
+  }
+
+  .admin-table-status-pending {
+    background-color: #fff7df;
+    border-color: #f5d58b;
+    color: #a16207;
+  }
+
+  .admin-table-status-confirmed {
+    background-color: #e8faf2;
+    border-color: #a7e5c7;
+    color: #047857;
+  }
+
+  .admin-table-status-completed {
+    background-color: #f1ebff;
+    border-color: #d5c2ff;
+    color: #6d28d9;
+  }
+
+  .admin-table-status-cancelled {
+    background-color: #fff0f2;
+    border-color: #f7b8c2;
+    color: #be123c;
+  }
+
+  .admin-table-status .admin-status-select {
+    background-color: transparent;
+    border-color: transparent;
+    color: inherit;
+  }
+
+  .admin-missed-alert-trigger {
+    box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.12);
+  }
+
+  .admin-action-button {
+    border: 1px solid transparent;
+  }
+
+  .admin-action-phone,
+  .admin-action-view {
+    background-color: #f1f5f9;
+    border-color: #e2e8f0;
+  }
+
+  .admin-action-whatsapp {
+    background-color: #ecfdf5;
+    border-color: #bbf7d0;
+  }
+
+  .admin-action-delete {
+    background-color: #fff1f2;
+    border-color: #fecdd3;
+  }
+
+  .admin-appointments-pagination button {
+    background-color: #ffffff;
+    border-color: #dbe7f0;
+  }
+
+  .admin-appointments-pagination button:hover:not(:disabled) {
+    background-color: #f1f7fb;
+  }
+
   html[data-admin-dark-mode="true"] .admin-status-card .admin-status-label,
   html[data-admin-dark-mode="true"] .admin-status-card .admin-status-value {
     color: var(--admin-text) !important;
@@ -412,6 +779,247 @@
   html[data-admin-dark-mode="true"] .admin-status-card.selected .admin-status-label,
   html[data-admin-dark-mode="true"] .admin-status-card.selected .admin-status-value {
     color: var(--admin-status-selected-text) !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-summary-card {
+    color: #eaf3ff !important;
+    transition-property: background-color, border-color, box-shadow;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-summary-card .admin-status-label,
+  html[data-admin-dark-mode="true"] .admin-summary-card .admin-status-value {
+    color: #eaf3ff !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-summary-card .admin-summary-icon {
+    background-color: var(--summary-icon-bg) !important;
+    box-shadow: 0 0 16px var(--summary-icon-glow);
+    color: var(--summary-accent) !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-summary-all {
+    --summary-accent: #60a5fa;
+    --summary-icon-bg: rgba(37, 99, 235, 0.28);
+    --summary-icon-glow: rgba(59, 130, 246, 0.22);
+    background: linear-gradient(135deg, #1d3552, #172236) !important;
+    border-color: rgba(45, 212, 191, 0.5) !important;
+    box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.12), 0 6px 18px rgba(15, 23, 42, 0.22);
+    color: #ffffff !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-summary-all.selected,
+  html[data-admin-dark-mode="true"] .admin-summary-all .admin-status-label,
+  html[data-admin-dark-mode="true"] .admin-summary-all .admin-status-value,
+  html[data-admin-dark-mode="true"] .admin-summary-all.selected .admin-status-label,
+  html[data-admin-dark-mode="true"] .admin-summary-all.selected .admin-status-value {
+    color: #ffffff !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-summary-pending {
+    --summary-accent: #fbbf24;
+    --summary-icon-bg: rgba(217, 119, 6, 0.3);
+    --summary-icon-glow: rgba(245, 158, 11, 0.22);
+    background: linear-gradient(135deg, rgba(146, 64, 14, 0.3), rgba(15, 23, 42, 0.2)) !important;
+    border-color: rgba(251, 191, 36, 0.38) !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-summary-confirmed {
+    --summary-accent: #34d399;
+    --summary-icon-bg: rgba(5, 150, 105, 0.3);
+    --summary-icon-glow: rgba(16, 185, 129, 0.22);
+    background: linear-gradient(135deg, rgba(6, 78, 59, 0.34), rgba(15, 23, 42, 0.2)) !important;
+    border-color: rgba(52, 211, 153, 0.38) !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-summary-completed {
+    --summary-accent: #a78bfa;
+    --summary-icon-bg: rgba(124, 58, 237, 0.3);
+    --summary-icon-glow: rgba(139, 92, 246, 0.22);
+    background: linear-gradient(135deg, rgba(76, 29, 149, 0.34), rgba(15, 23, 42, 0.2)) !important;
+    border-color: rgba(167, 139, 250, 0.38) !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-summary-cancelled {
+    --summary-accent: #fb7185;
+    --summary-icon-bg: rgba(225, 29, 72, 0.3);
+    --summary-icon-glow: rgba(244, 63, 94, 0.22);
+    background: linear-gradient(135deg, rgba(127, 29, 29, 0.34), rgba(15, 23, 42, 0.2)) !important;
+    border-color: rgba(251, 113, 133, 0.38) !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-summary-card:not(.selected):hover {
+    filter: brightness(1.14);
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.28);
+  }
+
+  html[data-admin-dark-mode="true"] .admin-appointments-table {
+    background: #122238 !important;
+    border-color: #2b4460 !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-appointments-header {
+    border-color: color-mix(in srgb, var(--admin-status-selected-border) 42%, var(--admin-border)) !important;
+    color: var(--admin-text) !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-appointments-header > tr > th {
+    background-color: color-mix(in srgb, var(--admin-status-selected-border) 24%, var(--admin-surface)) !important;
+  }
+
+  .admin-appointment-row {
+    background-color: transparent;
+    transition: background-color 180ms ease;
+  }
+
+  .admin-appointment-row > td {
+    background-color: transparent;
+    transition: background-color 180ms ease;
+  }
+
+  .admin-appointment-row:hover {
+    background-color: var(--admin-row-hover-bg) !important;
+  }
+
+  .admin-appointment-row:hover > td {
+    background-color: var(--admin-row-hover-bg) !important;
+  }
+
+  .admin-appointment-row-selected,
+  .admin-appointment-row-selected > td,
+  .admin-appointment-card-selected {
+    background-color: color-mix(in srgb, var(--admin-status-selected-border) 18%, var(--admin-surface-strong)) !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-action-toast {
+    border-color: rgba(255, 255, 255, 0.7);
+    background-color: rgba(0, 0, 0, 0.82);
+    color: #ffffff;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-appointment-row {
+    border-color: rgba(91, 123, 157, 0.25) !important;
+    background-color: #122238 !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-appointment-row:hover,
+  html[data-admin-dark-mode="true"] .admin-appointment-row:hover > td {
+    background-color: color-mix(in srgb, var(--admin-status-selected-border) 22%, transparent) !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-appointment-row-selected,
+  html[data-admin-dark-mode="true"] .admin-appointment-row-selected > td,
+  html[data-admin-dark-mode="true"] .admin-appointment-card-selected {
+    background-color: color-mix(in srgb, var(--admin-status-selected-border) 28%, #122238) !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-appointment-card {
+    background-color: #122238 !important;
+    border-color: #2b4460 !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-appointment-card:hover {
+    background-color: #1a304a !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-patient-avatar.bg-blue-100 {
+    background-color: rgba(37, 99, 235, 0.55) !important;
+    color: #dbeafe !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-patient-avatar.bg-violet-100 {
+    background-color: rgba(124, 58, 237, 0.52) !important;
+    color: #ede9fe !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-patient-avatar.bg-emerald-100 {
+    background-color: rgba(5, 150, 105, 0.52) !important;
+    color: #d1fae5 !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-patient-avatar.bg-pink-100 {
+    background-color: rgba(219, 39, 119, 0.5) !important;
+    color: #fce7f3 !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-patient-avatar.bg-cyan-100 {
+    background-color: rgba(8, 145, 178, 0.52) !important;
+    color: #cffafe !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-table-status-pending {
+    background-color: rgba(146, 94, 13, 0.28) !important;
+    border-color: rgba(251, 191, 36, 0.42) !important;
+    color: #fcd34d !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-table-status-confirmed {
+    background-color: rgba(6, 95, 70, 0.3) !important;
+    border-color: rgba(52, 211, 153, 0.42) !important;
+    color: #6ee7b7 !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-table-status-completed {
+    background-color: rgba(91, 33, 182, 0.3) !important;
+    border-color: rgba(167, 139, 250, 0.42) !important;
+    color: #c4b5fd !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-table-status-cancelled {
+    background-color: rgba(127, 29, 29, 0.3) !important;
+    border-color: rgba(251, 113, 133, 0.42) !important;
+    color: #fda4af !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-table-status .admin-status-select {
+    background-color: transparent !important;
+    border-color: transparent !important;
+    color: inherit !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-missed-alert-trigger {
+    background-color: #fb7185 !important;
+    box-shadow: 0 0 0 3px rgba(251, 113, 133, 0.16);
+  }
+
+  html[data-admin-dark-mode="true"] .admin-missed-alert-tooltip {
+    background-color: #5f1d2a !important;
+    color: #ffe4e6 !important;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.4);
+  }
+
+  html[data-admin-dark-mode="true"] .admin-action-phone,
+  html[data-admin-dark-mode="true"] .admin-action-view {
+    background-color: rgba(37, 99, 235, 0.18) !important;
+    border-color: rgba(96, 165, 250, 0.24) !important;
+    color: #bfdbfe !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-action-whatsapp {
+    background-color: rgba(5, 150, 105, 0.2) !important;
+    border-color: rgba(52, 211, 153, 0.26) !important;
+    color: #6ee7b7 !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-action-delete {
+    background-color: rgba(190, 24, 93, 0.2) !important;
+    border-color: rgba(251, 113, 133, 0.28) !important;
+    color: #fda4af !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-appointments-pagination button {
+    background-color: #172b45 !important;
+    border-color: #2b4460 !important;
+    color: #d7e4f4 !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-appointments-pagination button:hover:not(:disabled) {
+    background-color: #24415f !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-appointments-pagination button.bg-blue-900 {
+    background-color: #2563eb !important;
+    border-color: #60a5fa !important;
+    color: #eff6ff !important;
   }
 
   html[data-admin-dark-mode="true"] .text-ink\/60,

@@ -17,6 +17,7 @@ export interface NewAppointmentValues {
 interface NewAppointmentModalProps {
   isSaving: boolean;
   treatmentOptions: string[];
+  initialValues?: Partial<Pick<NewAppointmentValues, "patientName" | "phone">>;
   onCancel: () => void;
   onSave: (values: NewAppointmentValues) => void;
 }
@@ -45,10 +46,11 @@ const errorTextClasses = "text-xs text-red-600";
 export default function NewAppointmentModal({
   isSaving,
   treatmentOptions,
+  initialValues: prefill = {},
   onCancel,
   onSave,
 }: NewAppointmentModalProps) {
-  const [values, setValues] = useState<NewAppointmentValues>(initialValues);
+  const [values, setValues] = useState<NewAppointmentValues>({ ...initialValues, ...prefill });
   const [errors, setErrors] = useState<Partial<Record<keyof NewAppointmentValues, string>>>({});
 
   function updateField<K extends keyof NewAppointmentValues>(field: K, value: NewAppointmentValues[K]) {

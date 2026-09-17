@@ -143,11 +143,11 @@ export default function Hero() {
           </Button>
         </div>
 
-        <ul className="grid w-full max-w-3xl grid-cols-1 gap-3 pb-2 pt-1 text-blue-900/80 sm:grid-cols-3 sm:gap-0">
+        <ul className="grid w-full max-w-3xl grid-cols-1 gap-4 pb-2 pt-1 text-blue-900/80 sm:max-w-lg sm:grid-cols-3 sm:gap-0">
           {HERO_BENEFITS.map((benefit, index) => (
             <li
               key={benefit}
-              className={`flex min-w-0 items-center justify-center gap-3 px-4 sm:my-2 sm:px-5 ${index > 0 ? "sm:border-l sm:border-blue-900/15" : ""}`}
+              className={`flex min-w-0 items-center justify-start gap-3 px-0 sm:my-2 sm:justify-center sm:px-5 ${index > 0 ? "sm:border-l sm:border-blue-900/15" : ""}`}
             >
               <span className="flex h-9 w-9 flex-none items-center justify-center rounded-full border border-blue-900/25 bg-white/35 text-blue-900 shadow-[0_2px_8px_rgba(16,44,69,0.12)] backdrop-blur-sm">
                 <HeroBenefitIcon index={index} />

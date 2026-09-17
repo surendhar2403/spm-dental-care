@@ -26,7 +26,7 @@ function DarkModeToggleButton({
       aria-label={label}
       title={label}
       onClick={onToggle}
-      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-line bg-canvas text-ink transition-colors hover:bg-canvas-soft focus:outline-none focus:ring-2 focus:ring-blue-600"
+      className="admin-dashboard-control inline-flex h-9 w-9 items-center justify-center rounded-full text-white transition-colors focus:outline-none"
     >
       {isDarkMode ? (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" className="h-4 w-4">
@@ -167,7 +167,7 @@ export default function AdminHeaderSettings() {
     <div
       ref={menuRef}
       style={menuStyle}
-      className="max-h-[calc(100vh-24px)] overflow-y-auto overflow-x-hidden rounded-xl border border-line bg-canvas p-1.5 shadow-lg shadow-ink/10"
+      className="admin-dashboard-menu max-h-[calc(100vh-24px)] overflow-y-auto overflow-x-hidden rounded-xl border p-1.5 shadow-lg"
     >
       <div className="flex flex-col gap-1"> 
         <button
@@ -251,7 +251,7 @@ export default function AdminHeaderSettings() {
     <div
       ref={colorMenuRef}
       style={colorMenuStyle}
-      className="max-h-[calc(100vh-24px)] overflow-y-auto overflow-x-hidden rounded-xl border border-line bg-canvas p-1.5 shadow-lg shadow-ink/10"
+      className="admin-dashboard-menu admin-dashboard-color-menu max-h-[calc(100vh-24px)] overflow-y-auto overflow-x-hidden rounded-xl border p-1.5 shadow-lg"
     >
       <div className="flex flex-col gap-1">
         {ADMIN_THEMES.map((theme) => {
@@ -291,16 +291,17 @@ export default function AdminHeaderSettings() {
 
   return (
     <div className="relative flex items-center gap-2">
-      <DarkModeToggleButton isDarkMode={isDarkMode} onToggle={() => setIsDarkMode((value) => !value)} />
+      <div className="admin-dashboard-controls">
+        <DarkModeToggleButton isDarkMode={isDarkMode} onToggle={() => setIsDarkMode((value) => !value)} />
 
-      <button
-        ref={buttonRef}
-        type="button"
-        aria-label="Open settings menu"
-        aria-expanded={isOpen}
-        onClick={() => setIsOpen((open) => !open)}
-        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-line bg-canvas text-ink transition-colors hover:bg-canvas-soft focus:outline-none focus:ring-2 focus:ring-blue-600"
-      >
+        <button
+          ref={buttonRef}
+          type="button"
+          aria-label="Open settings menu"
+          aria-expanded={isOpen}
+          onClick={() => setIsOpen((open) => !open)}
+          className="admin-dashboard-control inline-flex h-9 w-9 items-center justify-center rounded-full text-white transition-colors focus:outline-none"
+        >
         <svg
           viewBox="0 0 24 24"
           fill="none"
@@ -314,7 +315,8 @@ export default function AdminHeaderSettings() {
           <circle cx="12" cy="12" r="3.2" />
           <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.86l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15.8 19.4a1.7 1.7 0 0 0-1.08 1.57V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 9.6 19.4a1.7 1.7 0 0 0-1.86.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15.8a1.7 1.7 0 0 0-1.57-1.08H2.94a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 9.6a1.7 1.7 0 0 0-.34-1.86l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9.6 4.6a1.7 1.7 0 0 0 1.08-1.57V2.94a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 15.8 4.6a1.7 1.7 0 0 0 1.86-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9.6a1.7 1.7 0 0 0 1.57 1.08h.09a2 2 0 1 1 0 4h-.09A1.7 1.7 0 0 0 19.4 15Z" />
         </svg>
-      </button>
+        </button>
+      </div>
 
       {isOpen && typeof document !== "undefined" ? createPortal(menuContent, document.body) : null}
       {isColorMenuOpen && typeof document !== "undefined" ? createPortal(colorMenuContent, document.body) : null}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { AdminTreatment } from "@/types/admin";
+import SettingsActionIcon from "./SettingsActionIcon";
 
 interface ManageTreatmentsModalProps {
   treatments: AdminTreatment[];
@@ -95,14 +96,7 @@ export default function ManageTreatmentsModal({
               treatment.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="flex-none text-ink/50 transition-colors hover:text-ink"
-          >
-            ✕
-          </button>
+          <SettingsActionIcon icon="x" label="Close manage treatments" onClick={onClose} />
         </div>
 
         <form
@@ -174,14 +168,13 @@ export default function ManageTreatmentsModal({
                     <div className="flex items-center justify-between gap-3">
                       <span className="truncate font-medium text-ink">{treatment.name}</span>
                       <div className="flex items-center gap-2">
-                        <button
-                          type="button"
+                        <SettingsActionIcon
+                          icon="trash"
+                          label={`Delete ${treatment.name}`}
                           onClick={() => setConfirmingId(treatment.id)}
                           disabled={busyId !== null}
-                          className="text-xs font-medium text-red-600 transition-colors hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          Delete
-                        </button>
+                          tone="danger"
+                        />
                         <span className={`rounded-full px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-wide ${draft.isActive ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
                           {draft.isActive ? "Active" : "Inactive"}
                         </span>
@@ -227,17 +220,14 @@ export default function ManageTreatmentsModal({
                         />
                       </label>
 
-                      <button
-                        type="button"
+                      <SettingsActionIcon
+                        icon={draft.isActive ? "eye-off" : "eye"}
+                        label={draft.isActive ? `Disable ${treatment.name}` : `Enable ${treatment.name}`}
                         disabled={isBusy}
                         aria-label={draft.isActive ? "Deactivate treatment" : "Activate treatment"}
                         onClick={() => setDrafts((current) => ({ ...current, [treatment.id]: { ...draft, isActive: !draft.isActive } }))}
-                        className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors duration-200 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 ${draft.isActive ? "bg-emerald-500" : "bg-slate-300"}`}
-                      >
-                        <span
-                          className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform duration-200 ${draft.isActive ? "translate-x-6" : "translate-x-1"}`}
-                        />
-                      </button>
+                        tone={draft.isActive ? "warning" : "success"}
+                      />
 
                       <button
                         type="button"

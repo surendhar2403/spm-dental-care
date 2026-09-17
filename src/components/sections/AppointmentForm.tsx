@@ -472,7 +472,7 @@ export default function AppointmentForm({
             aria-describedby={
               errors.preferredDate ? fieldId("preferredDate-error") : undefined
             }
-            className={`${inputClasses} ${errors.preferredDate ? inputErrorClasses : ""}`}
+            className={`appointment-date-input ${inputClasses} ${errors.preferredDate ? inputErrorClasses : ""}`}
           />
           {errors.preferredDate ? (
             <p id={fieldId("preferredDate-error")} className={errorTextClasses}>

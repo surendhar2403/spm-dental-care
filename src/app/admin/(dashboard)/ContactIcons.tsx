@@ -19,15 +19,6 @@ function WhatsAppIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-function EyeIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
-      <circle cx="12" cy="12" r="2.75" />
-    </svg>
-  );
-}
-
 function TrashIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
@@ -52,24 +43,22 @@ function TrashIcon(props: SVGProps<SVGSVGElement>) {
  */
 export default function PatientContactIcons({
   phone,
-  onView,
   onDelete,
   deleteDisabled,
 }: {
   phone: string;
-  onView: () => void;
   onDelete: () => void;
   deleteDisabled?: boolean;
 }) {
   return (
-    <span className="inline-flex flex-none items-center gap-1">
+    <span className="inline-flex flex-none items-center gap-1.5">
       <a
         href={buildTelUrl(phone)}
         aria-label="Call patient"
         title="Call patient"
-        className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[var(--admin-link)] transition-colors hover:bg-[var(--admin-surface)]"
+        className="admin-action-button admin-action-phone inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--admin-link)] transition-colors hover:bg-[var(--admin-surface)]"
       >
-        <PhoneIcon className="h-3.5 w-3.5" />
+        <PhoneIcon className="h-[18px] w-[18px]" />
       </a>
       <a
         href={buildWhatsAppUrl(phone)}
@@ -77,28 +66,19 @@ export default function PatientContactIcons({
         rel="noopener noreferrer"
         aria-label="WhatsApp patient"
         title="WhatsApp patient"
-        className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[var(--admin-success)] transition-colors hover:bg-[var(--admin-surface)]"
+        className="admin-action-button admin-action-whatsapp inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--admin-success)] transition-colors hover:bg-[var(--admin-surface)]"
       >
-        <WhatsAppIcon className="h-3.5 w-3.5" />
+        <WhatsAppIcon className="h-[18px] w-[18px]" />
       </a>
-      <button
-        type="button"
-        onClick={onView}
-        aria-label="View appointment"
-        title="View appointment"
-        className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[var(--admin-text-soft)] transition-colors hover:bg-[var(--admin-surface)] hover:text-[var(--admin-text)]"
-      >
-        <EyeIcon className="h-3.5 w-3.5" />
-      </button>
       <button
         type="button"
         onClick={onDelete}
         disabled={deleteDisabled}
         aria-label="Delete appointment"
         title="Delete appointment"
-        className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[var(--admin-danger)] transition-colors hover:bg-[var(--admin-surface)] disabled:cursor-not-allowed disabled:opacity-60"
+        className="admin-action-button admin-action-delete inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--admin-danger)] transition-colors hover:bg-[var(--admin-surface)] disabled:cursor-not-allowed disabled:opacity-60"
       >
-        <TrashIcon className="h-3.5 w-3.5" />
+        <TrashIcon className="h-[18px] w-[18px]" />
       </button>
     </span>
   );

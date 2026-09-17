@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { AdminTestimonial } from "@/types/admin";
+import SettingsActionIcon from "./SettingsActionIcon";
 
 interface ManageTestimonialsModalProps {
   testimonials: AdminTestimonial[];
@@ -92,14 +93,7 @@ export default function ManageTestimonialsModal({
 			</h2>
 			<p className="mt-1 text-sm text-ink/60">Add, edit, or remove patient reviews shown on the public site.</p>
 		  </div>
-		  <button
-			type="button"
-			onClick={onClose}
-			aria-label="Close"
-			className="flex-none text-ink/50 transition-colors hover:text-ink"
-		  >
-			✕
-		  </button>
+		 <SettingsActionIcon icon="x" label="Close manage reviews" onClick={onClose} />
 		</div>
 
 		<form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-2 rounded-card border border-line bg-canvas-soft p-4">
@@ -184,10 +178,10 @@ export default function ManageTestimonialsModal({
 						) : (
 						  <div className="flex flex-col items-end gap-2">
 							<div className="flex flex-col items-end gap-2">
-							  <button type="button" onClick={() => { setEditingId(t.id); setEditingDraft(t); }} disabled={isBusy} className="text-xs font-medium text-blue-700 hover:underline">Edit</button>
-							  <button type="button" onClick={() => onRemove(t)} disabled={isBusy} className="text-xs font-medium text-red-600 hover:underline">Remove</button>
+															<SettingsActionIcon icon="edit" label={`Edit review by ${t.patient_name}`} onClick={() => { setEditingId(t.id); setEditingDraft(t); }} disabled={isBusy} tone="neutral" />
+															<SettingsActionIcon icon="trash" label={`Remove review by ${t.patient_name}`} onClick={() => onRemove(t)} disabled={isBusy} tone="danger" />
 							  {onToggleActive ? (
-								<button type="button" onClick={() => onToggleActive(t)} disabled={isBusy} className="text-xs font-medium text-ink/70 hover:underline">{t.is_active ? "Disable" : "Enable"}</button>
+																<SettingsActionIcon icon={t.is_active ? "eye-off" : "eye"} label={t.is_active ? `Disable review by ${t.patient_name}` : `Enable review by ${t.patient_name}`} onClick={() => onToggleActive(t)} disabled={isBusy} tone={t.is_active ? "warning" : "success"} />
 							  ) : null}
 							</div>
 						  </div>
@@ -210,7 +204,13 @@ export default function ManageTestimonialsModal({
 		</div>
 
 		<div className="mt-6 flex justify-end">
-		  <button type="button" onClick={onClose} className="inline-flex items-center justify-center rounded-full bg-blue-900 px-5 py-2.5 text-sm font-semibold text-canvas transition-colors hover:bg-blue-800">Close</button>
+		  <button
+			type="button"
+			onClick={onClose}
+			className="inline-flex items-center justify-center rounded-full bg-blue-900 px-5 py-2.5 text-sm font-semibold text-canvas transition-colors hover:bg-blue-800"
+		  >
+			Close
+		  </button>
 		</div>
 	  </div>
 	</div>

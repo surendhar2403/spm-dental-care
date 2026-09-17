@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ChangeEvent } from "react";
 import type { ClinicGalleryImage, ClinicSettings } from "@/types";
+import SettingsActionIcon from "./SettingsActionIcon";
 
 interface ManageClinicInfoModalProps {
   settings: ClinicSettings | null;
@@ -158,14 +159,7 @@ export default function ManageClinicInfoModal({
               Update the clinic gallery, contact details, location, and opening hours.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="flex-none text-ink/50 transition-colors hover:text-ink"
-          >
-            ✕
-          </button>
+          <SettingsActionIcon icon="x" label="Close manage clinic information" onClick={onClose} />
         </div>
 
         {isLoading ? (
@@ -418,23 +412,23 @@ export default function ManageClinicInfoModal({
                             <p className="truncate text-sm font-medium text-ink">{image.title || "Untitled image"}</p>
                             <p className="text-xs text-ink/60">Order: {image.sort_order}</p>
                             <div className="mt-2 flex flex-wrap gap-2">
-                              <button
-                                type="button"
+                              <SettingsActionIcon
+                                icon="chevron-up"
+                                label={`Move ${image.title || "image"} up`}
                                 onClick={() => onReorderGalleryImage(image, "up")}
                                 disabled={isBusy || isSaving}
-                                className="rounded-full border border-line px-2 py-1 text-[10px] font-medium text-ink transition-colors hover:bg-canvas-soft disabled:cursor-not-allowed disabled:opacity-60"
-                              >
-                                ↑
-                              </button>
-                              <button
-                                type="button"
+                              />
+                              <SettingsActionIcon
+                                icon="chevron-down"
+                                label={`Move ${image.title || "image"} down`}
                                 onClick={() => onReorderGalleryImage(image, "down")}
                                 disabled={isBusy || isSaving}
-                                className="rounded-full border border-line px-2 py-1 text-[10px] font-medium text-ink transition-colors hover:bg-canvas-soft disabled:cursor-not-allowed disabled:opacity-60"
+                              />
+                              <label
+                                title={`Replace ${image.title || "image"}`}
+                                aria-label={`Replace ${image.title || "image"}`}
+                                className="admin-settings-icon-button admin-settings-icon-button-neutral cursor-pointer"
                               >
-                                ↓
-                              </button>
-                              <label className="cursor-pointer rounded-full border border-line px-2 py-1 text-[10px] font-medium text-ink transition-colors hover:bg-canvas-soft disabled:cursor-not-allowed disabled:opacity-60">
                                 <input
                                   type="file"
                                   accept="image/*"
@@ -444,16 +438,17 @@ export default function ManageClinicInfoModal({
                                     handleFileChange(event, image);
                                   }}
                                 />
-                                Replace
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                  <path d="M12 16V4M7.5 8.5 12 4l4.5 4.5M5 20h14" />
+                                </svg>
                               </label>
-                              <button
-                                type="button"
+                              <SettingsActionIcon
+                                icon={image.is_active ? "eye-off" : "eye"}
+                                label={image.is_active ? `Hide ${image.title || "image"}` : `Show ${image.title || "image"}`}
                                 onClick={() => onToggleGalleryImageActive(image)}
                                 disabled={isBusy || isSaving}
-                                className="rounded-full border border-line px-2 py-1 text-[10px] font-medium text-ink transition-colors hover:bg-canvas-soft disabled:cursor-not-allowed disabled:opacity-60"
-                              >
-                                {image.is_active ? "Hide" : "Show"}
-                              </button>
+                                tone={image.is_active ? "warning" : "success"}
+                              />
                             </div>
                           </div>
                         </div>
@@ -483,14 +478,13 @@ export default function ManageClinicInfoModal({
                           </div>
                         ) : (
                           <div className="mt-3 flex justify-end">
-                            <button
-                              type="button"
+                            <SettingsActionIcon
+                              icon="trash"
+                              label={`Remove ${image.title || "image"}`}
                               onClick={() => setConfirmingId(image.id)}
                               disabled={busyId !== null || isSaving}
-                              className="text-xs font-medium text-red-600 hover:underline disabled:cursor-not-allowed disabled:text-ink/40 disabled:no-underline"
-                            >
-                              Remove
-                            </button>
+                              tone="danger"
+                            />
                           </div>
                         )}
                       </li>

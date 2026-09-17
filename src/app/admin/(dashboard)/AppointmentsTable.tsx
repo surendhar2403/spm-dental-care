@@ -1,30 +1,346 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   APPOINTMENT_STATUSES,
   type Appointment,
   type AppointmentStatus,
 } from "@/types/admin";
 import {
-  STATUS_STYLES,
   formatCreatedAt,
   formatCreatedAtDate,
   formatCreatedAtTime,
   formatDate,
   formatTime,
+  formatStatusLabel,
   isConfirmedAppointmentPast,
 } from "./appointmentDisplay";
 import MissedAppointmentAlert from "./MissedAppointmentAlert";
 import PatientContactIcons from "./ContactIcons";
 
+const PATIENT_AVATAR_STYLES = [
+  "bg-blue-100 text-blue-700",
+  "bg-violet-100 text-violet-700",
+  "bg-emerald-100 text-emerald-700",
+  "bg-pink-100 text-pink-700",
+  "bg-cyan-100 text-cyan-700",
+];
+
+const STATUS_THEME_STYLES: Record<AppointmentStatus, string> = {
+  pending: "admin-table-status-pending",
+  confirmed: "admin-table-status-confirmed",
+  completed: "admin-table-status-completed",
+  cancelled: "admin-table-status-cancelled",
+  no_show: "admin-table-status-cancelled",
+};
+
+const STATUS_MENU_STYLES: Record<AppointmentStatus, string> = {
+  pending: "text-amber-700 hover:bg-amber-50",
+  confirmed: "text-emerald-700 hover:bg-emerald-50",
+  completed: "text-blue-700 hover:bg-blue-50",
+  cancelled: "text-rose-700 hover:bg-rose-50",
+  no_show: "text-rose-700 hover:bg-rose-50",
+};
+
+const STATUS_DROPDOWN_STYLES: Record<AppointmentStatus, string> = {
+  pending: "border-amber-200/80 bg-amber-100 text-amber-700",
+  confirmed: "border-emerald-200/80 bg-emerald-100 text-emerald-700",
+  completed: "border-blue-200/80 bg-blue-100 text-blue-700",
+  cancelled: "border-rose-200/80 bg-rose-100 text-rose-700",
+  no_show: "border-rose-200/80 bg-rose-100 text-rose-700",
+};
+
+function getPatientInitials(name: string) {
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+}
+
+function getPatientAvatarStyle(name: string) {
+  const code = name.split("").reduce((total, character) => total + character.charCodeAt(0), 0);
+  return PATIENT_AVATAR_STYLES[code % PATIENT_AVATAR_STYLES.length];
+}
+
+function ExternalLinkIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+      <path d="M14 5h5v5" />
+      <path d="m13 11 6-6" />
+      <path d="M19 14v4a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h4" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true" className="h-4 w-4">
+      <path d="m6 6 12 12M18 6 6 18" />
+    </svg>
+  );
+}
+
+function MessageCell({ message }: { message: string | null }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const hasMessage = Boolean(message?.trim());
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setIsOpen(false);
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen]);
+
+  return (
+    <>
+      <div className="flex min-w-0 items-center gap-1.5">
+        {hasMessage ? (
+          <button
+            type="button"
+            onClick={() => setIsOpen(true)}
+            aria-label="View full appointment message"
+            title="View full appointment message"
+            className="h-9 max-h-9 min-w-0 max-w-full flex-1 cursor-pointer overflow-hidden rounded-lg border border-[color-mix(in_srgb,var(--admin-link)_24%,var(--admin-border))] bg-[color-mix(in_srgb,var(--admin-link)_4%,var(--admin-surface))] px-2 py-1 text-left text-xs leading-4 text-[var(--admin-text)] transition-colors duration-150 hover:border-[color-mix(in_srgb,var(--admin-link)_42%,var(--admin-border))] hover:bg-[color-mix(in_srgb,var(--admin-link)_9%,var(--admin-surface))] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-link)]"
+          >
+            <span className="block line-clamp-2 whitespace-pre-wrap break-words">{message}</span>
+          </button>
+        ) : (
+          <div className="h-9 max-h-9 min-w-0 max-w-full flex-1 overflow-hidden rounded-lg border border-[color-mix(in_srgb,var(--admin-link)_24%,var(--admin-border))] bg-[color-mix(in_srgb,var(--admin-link)_4%,var(--admin-surface))] px-2 py-1 text-xs leading-4 text-[var(--admin-text-soft)]">
+            No message
+          </div>
+        )}
+      </div>
+
+      {isOpen && hasMessage ? createPortal(
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/35 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setIsOpen(false); }}>
+          <div role="dialog" aria-modal="true" aria-labelledby="appointment-message-title" className="w-full max-w-md rounded-xl border border-line bg-[var(--admin-surface-strong)] p-4 text-[var(--admin-text)] shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <h2 id="appointment-message-title" className="text-sm font-semibold text-[var(--admin-heading)]">Appointment Message</h2>
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                aria-label="Close message"
+                title="Close message"
+                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[var(--admin-text-soft)] transition-colors duration-150 hover:bg-[var(--admin-surface)] hover:text-[var(--admin-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-link)]"
+              >
+                <CloseIcon />
+              </button>
+            </div>
+            <div className="mt-3 max-h-[min(60vh,24rem)] overflow-y-auto rounded-lg border border-[color-mix(in_srgb,var(--admin-link)_24%,var(--admin-border))] bg-[color-mix(in_srgb,var(--admin-link)_4%,var(--admin-surface))] px-3 py-2.5 text-sm leading-5 whitespace-pre-wrap break-words [scrollbar-width:thin]">
+              {message}
+            </div>
+          </div>
+        </div>,
+        document.body,
+      ) : null}
+    </>
+  );
+}
+
+function StatusIcon({ status }: { status: AppointmentStatus }) {
+  const sharedProps = {
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 2,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    className: "h-3.5 w-3.5 shrink-0",
+    "aria-hidden": true,
+  };
+
+  if (status === "pending") {
+    return (
+      <svg {...sharedProps}>
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="M12 7v5l3 2" />
+      </svg>
+    );
+  }
+
+  if (status === "completed") {
+    return (
+      <svg {...sharedProps}>
+        <path d="m5 12 4 4L19 6" />
+        <path d="M5 19h14" />
+      </svg>
+    );
+  }
+
+  if (status === "cancelled" || status === "no_show") {
+    return (
+      <svg {...sharedProps}>
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="m9 9 6 6M15 9l-6 6" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg {...sharedProps}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="m8.5 12 2.3 2.3 4.7-4.7" />
+    </svg>
+  );
+}
+
+function ChevronDownIcon() {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-3.5 w-3.5 shrink-0"
+      aria-hidden="true"
+    >
+      <path d="m5.5 7.5 4.5 4.5 4.5-4.5" />
+    </svg>
+  );
+}
+
+function StatusDropdown({
+  value,
+  disabled,
+  placeholder,
+  onChange,
+}: {
+  value: AppointmentStatus | "";
+  disabled: boolean;
+  placeholder?: string;
+  onChange: (status: AppointmentStatus) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0, width: 0 });
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const selectedStatus = value || null;
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    function updateMenuPosition() {
+      const button = buttonRef.current;
+      if (!button) return;
+      const rect = button.getBoundingClientRect();
+      setMenuPosition({ top: rect.bottom + 6, left: rect.left, width: rect.width });
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target as Node;
+      if (!dropdownRef.current?.contains(target) && !menuRef.current?.contains(target)) {
+        setIsOpen(false);
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setIsOpen(false);
+    }
+
+    updateMenuPosition();
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("resize", updateMenuPosition);
+    window.addEventListener("scroll", updateMenuPosition, true);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("resize", updateMenuPosition);
+      window.removeEventListener("scroll", updateMenuPosition, true);
+    };
+  }, [isOpen]);
+
+  function handleSelect(status: AppointmentStatus) {
+    setIsOpen(false);
+    onChange(status);
+  }
+
+  return (
+    <div ref={dropdownRef} className="relative z-20 w-fit">
+      <button
+        type="button"
+        ref={buttonRef}
+        disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        aria-label={selectedStatus ? `Appointment status: ${formatStatusLabel(selectedStatus)}` : placeholder}
+        onClick={() => setIsOpen((open) => !open)}
+        className={`inline-flex w-fit items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/30 disabled:cursor-not-allowed disabled:opacity-60 ${
+          selectedStatus
+            ? STATUS_DROPDOWN_STYLES[selectedStatus]
+            : "border-line bg-[var(--admin-surface)] text-[var(--admin-text-soft)]"
+        }`}
+      >
+        {selectedStatus && <StatusIcon status={selectedStatus} />}
+        <span>{selectedStatus ? formatStatusLabel(selectedStatus) : placeholder}</span>
+        <ChevronDownIcon />
+      </button>
+
+      {typeof document !== "undefined"
+        ? createPortal(
+            <div
+              ref={menuRef}
+              role="listbox"
+              aria-label="Appointment status options"
+              aria-hidden={!isOpen}
+              style={{
+                top: menuPosition.top,
+                left: menuPosition.left,
+                minWidth: menuPosition.width,
+              }}
+              className={`fixed z-[100] origin-top-left rounded-lg border border-line bg-[var(--admin-surface-strong)] p-1 shadow-xl transition-all duration-150 ${
+                isOpen
+                  ? "visible translate-y-0 opacity-100"
+                  : "invisible pointer-events-none -translate-y-1 opacity-0"
+              }`}
+            >
+              {APPOINTMENT_STATUSES.map((status) => (
+                <button
+                  key={status}
+                  type="button"
+                  role="option"
+                  aria-selected={status === selectedStatus}
+                  onClick={() => handleSelect(status)}
+                  className={`flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs font-medium transition-colors ${STATUS_MENU_STYLES[status]} ${
+                    status === selectedStatus ? "bg-canvas-soft" : ""
+                  }`}
+                >
+                  <StatusIcon status={status} />
+                  <span className="whitespace-nowrap">{formatStatusLabel(status)}</span>
+                </button>
+              ))}
+            </div>,
+            document.body,
+          )
+        : null}
+    </div>
+  );
+}
+
 interface AppointmentsTableProps {
   appointments: Appointment[];
+  selectedAppointmentIds: Set<string>;
+  onSelectionChange: (ids: Set<string>) => void;
+  selectAllActive: boolean;
+  onSelectAllActiveChange: (active: boolean) => void;
+  onBulkStatusChange: (ids: string[], status: AppointmentStatus) => Promise<boolean>;
+  visitCounts: Map<string, number>;
   busyId: string | null;
   treatmentOptions: string[];
   onStatusChange: (id: string, status: AppointmentStatus) => Promise<boolean> | boolean;
   onArchiveRequest: (appointment: Appointment) => void;
-  onViewRequest: (appointment: Appointment) => void;
+  onPatientOpen: (appointment: Appointment) => void;
   onPreferredDateTimeUpdate: (
     id: string,
     preferredDate: string,
@@ -144,44 +460,27 @@ function StatusCell({
   if (appointment.status === "no_show") {
     return (
       <div className="flex flex-col items-start gap-1.5">
-        <span className="inline-flex w-fit items-center gap-1 rounded-full border border-rose-200 bg-rose-100 px-3 py-1.5 text-xs font-semibold text-rose-700">
-          🔴 No Show
+        <span className={`admin-table-status inline-flex w-fit items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold ${STATUS_THEME_STYLES.no_show}`}>
+          <StatusIcon status="no_show" />
+          No Show
         </span>
-        <select
+        <StatusDropdown
           value=""
+          placeholder="Change status..."
           disabled={isBusy}
-          onChange={(event) => {
-            if (event.target.value) {
-              onStatusChange(appointment.id, event.target.value as AppointmentStatus);
-            }
-          }}
-          className="admin-status-select w-fit rounded-full border border-line bg-[var(--admin-surface)] px-2 py-1 text-[11px] text-[var(--admin-text-soft)] shadow-sm focus:border-blue-600 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <option value="">Change status…</option>
-          {APPOINTMENT_STATUSES.map((status) => (
-            <option key={status} value={status} className="capitalize">
-              {status}
-            </option>
-          ))}
-        </select>
+          onChange={(status) => onStatusChange(appointment.id, status)}
+        />
       </div>
     );
   }
 
   return (
     <div className="flex flex-col items-start gap-1.5">
-      <select
+      <StatusDropdown
         value={appointment.status}
         disabled={isBusy}
-        onChange={(event) => onStatusChange(appointment.id, event.target.value as AppointmentStatus)}
-        className={`admin-status-select rounded-full border px-3 py-1.5 text-xs font-semibold capitalize shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-600 disabled:cursor-not-allowed disabled:opacity-60 ${STATUS_STYLES[appointment.status]}`}
-      >
-        {APPOINTMENT_STATUSES.map((status) => (
-          <option key={status} value={status}>
-            {status}
-          </option>
-        ))}
-      </select>
+        onChange={(status) => onStatusChange(appointment.id, status)}
+      />
     </div>
   );
 }
@@ -189,22 +488,56 @@ function StatusCell({
 function ActionCell({
   appointment,
   isBusy,
-  onViewRequest,
   onArchiveRequest,
 }: {
   appointment: Appointment;
   isBusy: boolean;
-  onViewRequest: (appointment: Appointment) => void;
   onArchiveRequest: (appointment: Appointment) => void;
 }) {
   return (
     <div className="flex items-center justify-end gap-1.5">
       <PatientContactIcons
         phone={appointment.phone}
-        onView={() => onViewRequest(appointment)}
         onDelete={() => onArchiveRequest(appointment)}
         deleteDisabled={isBusy}
       />
+    </div>
+  );
+}
+
+function BulkStatusToolbar({
+  selectedCount,
+  selectedIds,
+  isBusy,
+  onStatusChange,
+}: {
+  selectedCount: number;
+  selectedIds: string[];
+  isBusy: boolean;
+  onStatusChange: (ids: string[], status: AppointmentStatus) => Promise<boolean>;
+}) {
+  if (selectedCount === 0) return null;
+
+  return (
+    <div className="mb-2 flex flex-wrap items-center gap-2 rounded-xl border border-[color-mix(in_srgb,var(--admin-link)_24%,var(--admin-border))] bg-[color-mix(in_srgb,var(--admin-link)_5%,var(--admin-surface-strong))] px-3 py-2">
+      <span className="mr-1 text-xs font-semibold text-[var(--admin-text)]">{selectedCount} selected</span>
+      {([
+        ["pending", "Pending"],
+        ["confirmed", "Confirmed"],
+        ["completed", "Completed"],
+        ["cancelled", "Cancelled"],
+      ] as const).map(([status, label]) => (
+        <button
+          key={status}
+          type="button"
+          disabled={isBusy}
+          onClick={() => void onStatusChange(selectedIds, status)}
+          className={`admin-table-status inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${STATUS_THEME_STYLES[status]}`}
+        >
+          <StatusIcon status={status} />
+          {label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -321,11 +654,17 @@ function PreferredDateTimeCell({
 
 export default function AppointmentsTable({
   appointments,
+  selectedAppointmentIds,
+  onSelectionChange,
+  selectAllActive,
+  onSelectAllActiveChange,
+  onBulkStatusChange,
+  visitCounts,
   busyId,
   treatmentOptions,
   onStatusChange,
   onArchiveRequest,
-  onViewRequest,
+  onPatientOpen,
   onPreferredDateTimeUpdate,
   editingTreatmentId,
   treatmentDraft,
@@ -334,8 +673,48 @@ export default function AppointmentsTable({
   onTreatmentDraftChange,
   onEditTreatmentSave,
 }: AppointmentsTableProps) {
+  const currentPageIds = appointments.map((appointment) => appointment.id);
+  const selectedCurrentPageCount = currentPageIds.filter((id) => selectedAppointmentIds.has(id)).length;
+    const selectedCurrentPageIds = currentPageIds.filter((id) => selectedAppointmentIds.has(id));
+  const allCurrentPageSelected = currentPageIds.length > 0 && selectedCurrentPageCount === currentPageIds.length;
+  const someCurrentPageSelected = selectedCurrentPageCount > 0 && !allCurrentPageSelected;
+
+  function toggleSelection(id: string) {
+    const next = new Set(selectedAppointmentIds);
+    if (next.has(id)) {
+      next.delete(id);
+      onSelectAllActiveChange(false);
+    } else next.add(id);
+    onSelectionChange(next);
+  }
+
+  function toggleCurrentPageSelection() {
+    const next = new Set(selectedAppointmentIds);
+    if (allCurrentPageSelected) {
+      currentPageIds.forEach((id) => next.delete(id));
+      onSelectAllActiveChange(false);
+    } else {
+      currentPageIds.forEach((id) => next.add(id));
+      onSelectAllActiveChange(true);
+    }
+    onSelectionChange(next);
+  }
+
+  useEffect(() => {
+    if (!selectAllActive || currentPageIds.length === 0) return;
+    const next = new Set(selectedAppointmentIds);
+    currentPageIds.forEach((id) => next.add(id));
+    if (next.size !== selectedAppointmentIds.size) onSelectionChange(next);
+  }, [appointments, currentPageIds, onSelectionChange, selectAllActive, selectedAppointmentIds]);
+
   return (
     <>
+      <BulkStatusToolbar
+        selectedCount={selectedCurrentPageCount}
+        selectedIds={selectedCurrentPageIds}
+        isBusy={busyId !== null}
+        onStatusChange={onBulkStatusChange}
+      />
       {/*
         MOBILE (below sm, 640px): a stacked list of cards instead of the
         desktop table. Squeezing a 6-column table onto a 320-430px screen
@@ -345,6 +724,21 @@ export default function AppointmentsTable({
         row next to the patient's name, same as the desktop table. Hidden at
         sm+ where the table takes over.
       */}
+      <div className="mb-2 flex items-center gap-2 sm:hidden">
+        <input
+          type="checkbox"
+          checked={allCurrentPageSelected}
+          ref={(element) => {
+            if (element) element.indeterminate = someCurrentPageSelected;
+          }}
+          onChange={toggleCurrentPageSelection}
+          aria-label="Select all appointments on this page"
+          className="admin-selection-checkbox"
+        />
+        <span className="text-xs font-medium text-[var(--admin-text-soft)]">
+          Select All{selectedCurrentPageCount > 0 ? ` (${selectedCurrentPageCount} selected)` : ""}
+        </span>
+      </div>
       <ul className="flex flex-col gap-3 sm:hidden">
         {appointments.map((appointment) => {
           const isBusy = busyId === appointment.id;
@@ -355,20 +749,34 @@ export default function AppointmentsTable({
           return (
             <li
               key={appointment.id}
-              className="flex flex-col gap-3 rounded-2xl border border-line bg-[var(--admin-surface-strong)] p-4 shadow-sm"
+              className={`admin-appointment-card flex flex-col gap-3 rounded-2xl border bg-[var(--admin-surface-strong)] p-4 shadow-sm ${selectedAppointmentIds.has(appointment.id) ? "admin-appointment-card-selected" : ""}`}
             >
               <div className="flex items-start justify-between gap-3">
-                <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                  <span className="min-w-0 break-words font-medium text-ink">
-                    {appointment.patient_name}
-                  </span>
+                <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                  <input
+                    type="checkbox"
+                    checked={selectedAppointmentIds.has(appointment.id)}
+                    onChange={() => toggleSelection(appointment.id)}
+                    aria-label={`Select appointment for ${appointment.patient_name}`}
+                    className="admin-selection-checkbox shrink-0"
+                  />
+                  <button type="button" onClick={() => onPatientOpen(appointment)} aria-label={`View patient details for ${appointment.patient_name}`} title={`View patient details for ${appointment.patient_name}`} className="group inline-flex min-w-0 items-center gap-2 rounded-md text-left transition-colors hover:bg-[var(--admin-surface)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-link)]">
+                    <span className={`admin-patient-avatar flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${getPatientAvatarStyle(appointment.patient_name)}`}>
+                      {getPatientInitials(appointment.patient_name)}
+                    </span>
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="min-w-0 break-words font-medium text-ink">{appointment.patient_name}</span>
+                      <span aria-hidden="true" className="inline-flex h-10 w-10 shrink-0 items-center justify-start text-[var(--admin-link)] transition-colors group-hover:text-[var(--admin-link-strong)]">
+                        <ExternalLinkIcon />
+                      </span>
+                    </span>
+                  </button>
                   {isConfirmedAppointmentPast(appointment) ? <MissedAppointmentAlert /> : null}
                 </div>
                 <div className="flex items-center justify-end">
                   <ActionCell
                     appointment={appointment}
                     isBusy={isBusy}
-                    onViewRequest={onViewRequest}
                     onArchiveRequest={onArchiveRequest}
                   />
                 </div>
@@ -395,16 +803,8 @@ export default function AppointmentsTable({
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-xs font-medium uppercase tracking-wide text-[var(--admin-text-soft)]">
-                    Appointment Date
-                  </dt>
-                  <dd className="mt-0.5 text-[var(--admin-text)]">
-                    <PreferredDateTimeCell
-                      appointment={appointment}
-                      busyId={busyId}
-                      onPreferredDateTimeUpdate={onPreferredDateTimeUpdate}
-                    />
-                  </dd>
+                  <dt className="text-xs font-medium uppercase tracking-wide text-[var(--admin-text-soft)]">Visits</dt>
+                  <dd className="mt-0.5"><button type="button" onClick={() => onPatientOpen(appointment)} className="inline-flex rounded-full bg-[var(--admin-status-selected-bg)] px-2 py-1 text-xs font-semibold text-[var(--admin-status-selected-text)]" title={`Open ${appointment.patient_name} visit history`}>{visitCounts.get(appointment.phone) ?? 0} {visitCounts.get(appointment.phone) === 1 ? "visit" : "visits"}</button></dd>
                 </div>
                 <div>
                   <dt className="text-xs font-medium uppercase tracking-wide text-[var(--admin-text-soft)]">
@@ -417,14 +817,26 @@ export default function AppointmentsTable({
                     </div>
                   </dd>
                 </div>
-                {appointment.message ? (
-                  <div className="col-span-2">
-                    <dt className="text-xs font-medium uppercase tracking-wide text-[var(--admin-text-soft)]">
-                      Message
-                    </dt>
-                    <dd className="mt-0.5 line-clamp-2 text-[var(--admin-text)]">{appointment.message}</dd>
-                  </div>
-                ) : null}
+                <div>
+                  <dt className="text-xs font-medium uppercase tracking-wide text-[var(--admin-text-soft)]">
+                    Appointment Date
+                  </dt>
+                  <dd className="mt-0.5 text-[var(--admin-text)]">
+                    <PreferredDateTimeCell
+                      appointment={appointment}
+                      busyId={busyId}
+                      onPreferredDateTimeUpdate={onPreferredDateTimeUpdate}
+                    />
+                  </dd>
+                </div>
+                <div className="col-span-2 min-w-0">
+                  <dt className="text-xs font-medium uppercase tracking-wide text-[var(--admin-text-soft)]">
+                    Message
+                  </dt>
+                  <dd className="mt-0.5 min-w-0">
+                    <MessageCell message={appointment.message} />
+                  </dd>
+                </div>
               </dl>
             </li>
           );
@@ -432,18 +844,34 @@ export default function AppointmentsTable({
       </ul>
 
       {/* DESKTOP / TABLET (sm and up, 640px+): Patient | Treatment | Preferred | Message | Status | Requested | Actions. The missed-appointment warning sits under the patient name; the compact action icons live in their own right-side column. */}
-      <div className="relative z-10 hidden overflow-visible rounded-2xl border border-line bg-[var(--admin-surface-strong)] shadow-sm sm:block">
+      <div className="admin-appointments-table relative z-10 hidden overflow-visible rounded-2xl border border-line bg-[var(--admin-surface-strong)] shadow-sm sm:block">
         <div className="overflow-x-auto overflow-y-visible">
           <table className="w-full min-w-[760px] text-left text-sm">
-            <thead className="border-b border-line bg-[var(--admin-surface)] text-xs uppercase tracking-[0.12em] text-[var(--admin-text-soft)]">
+            <thead className="admin-appointments-header border-b border-line text-xs uppercase tracking-[0.12em] text-[var(--admin-text-soft)]">
               <tr>
-                <th className="admin-table-header px-4 py-3 font-semibold">Patient</th>
-                <th className="admin-table-header px-4 py-3 font-semibold">Treatment</th>
-                <th className="admin-table-header px-4 py-3 font-semibold">Appointment Date</th>
-                <th className="admin-table-header px-4 py-3 font-semibold">Message</th>
-                <th className="admin-table-header px-4 py-3 font-semibold">Status</th>
-                <th className="admin-table-header px-4 py-3 font-semibold">Requested</th>
-                <th className="admin-table-header px-4 py-3 text-right font-semibold">Actions</th>
+                <th className="admin-table-header w-[82px] px-2 py-2 text-center font-semibold">
+                  <label className="inline-flex cursor-pointer flex-col items-center justify-center gap-1 normal-case tracking-normal">
+                    <input
+                      type="checkbox"
+                      checked={allCurrentPageSelected}
+                      ref={(element) => {
+                        if (element) element.indeterminate = someCurrentPageSelected;
+                      }}
+                      onChange={toggleCurrentPageSelection}
+                      aria-label="Select all appointments on this page"
+                      className="admin-selection-checkbox"
+                    />
+                    <span className="text-[10px] font-semibold leading-none text-[var(--admin-text-soft)]">Select all</span>
+                  </label>
+                </th>
+                <th className="admin-table-header px-4 py-2 font-semibold">Patient{selectedCurrentPageCount > 0 ? ` (${selectedCurrentPageCount} selected)` : ""}</th>
+                <th className="admin-table-header px-4 py-2 font-semibold">Treatment</th>
+                <th className="admin-table-header px-4 py-2 font-semibold">Visits</th>
+                <th className="admin-table-header px-4 py-2 font-semibold">Requested</th>
+                <th className="admin-table-header px-4 py-2 font-semibold">Message</th>
+                <th className="admin-table-header px-4 py-2 font-semibold">Status</th>
+                <th className="admin-table-header px-4 py-2 font-semibold">Appointment Date</th>
+                <th className="admin-table-header px-4 py-2 text-right font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -454,15 +882,34 @@ export default function AppointmentsTable({
                 return (
                   <tr
                     key={appointment.id}
-                    className="border-b border-line last:border-b-0 hover:bg-[var(--admin-surface)]"
+                    className={`admin-appointment-row border-b border-line last:border-b-0 hover:bg-[var(--admin-surface)] ${selectedAppointmentIds.has(appointment.id) ? "admin-appointment-row-selected" : ""}`}
                   >
-                    <td className="px-4 py-3 align-top font-medium text-[var(--admin-text)]">
-                      <div className="flex min-w-0 items-center gap-1.5">
-                        <span className="break-words">{appointment.patient_name}</span>
+                    <td className="w-[82px] px-2 py-2 text-center align-middle">
+                      <input
+                        type="checkbox"
+                        checked={selectedAppointmentIds.has(appointment.id)}
+                        onChange={() => toggleSelection(appointment.id)}
+                        aria-label={`Select appointment for ${appointment.patient_name}`}
+                        className="admin-selection-checkbox"
+                      />
+                    </td>
+                    <td className="px-4 py-2 align-middle font-medium text-[var(--admin-text)]">
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <button type="button" onClick={() => onPatientOpen(appointment)} aria-label={`View patient details for ${appointment.patient_name}`} title={`View patient details for ${appointment.patient_name}`} className="group inline-flex min-w-0 items-center gap-2 rounded-md text-left transition-colors hover:bg-[var(--admin-surface)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-link)]">
+                          <span className={`admin-patient-avatar flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${getPatientAvatarStyle(appointment.patient_name)}`}>
+                            {getPatientInitials(appointment.patient_name)}
+                          </span>
+                          <span className="flex min-w-0 items-center gap-2">
+                            <span className="min-w-0 break-words font-medium text-[var(--admin-text)]">{appointment.patient_name}</span>
+                            <span aria-hidden="true" className="inline-flex h-10 w-10 shrink-0 items-center justify-start text-[var(--admin-link)] transition-colors group-hover:text-[var(--admin-link-strong)]">
+                              <ExternalLinkIcon />
+                            </span>
+                          </span>
+                        </button>
                         {isConfirmedAppointmentPast(appointment) ? <MissedAppointmentAlert /> : null}
                       </div>
                     </td>
-                    <td className="px-4 py-3 align-top text-[var(--admin-text)]">
+                    <td className="px-4 py-2 align-middle text-[var(--admin-text)]">
                       <TreatmentCell
                         appointment={appointment}
                         isBusy={isBusy}
@@ -479,40 +926,36 @@ export default function AppointmentsTable({
                         onEditTreatmentSave={onEditTreatmentSave}
                       />
                     </td>
-                    <td className="px-4 py-3 align-top text-[var(--admin-text)]">
-                      <PreferredDateTimeCell
-                        appointment={appointment}
-                        busyId={busyId}
-                        onPreferredDateTimeUpdate={onPreferredDateTimeUpdate}
-                      />
+                    <td className="px-4 py-2 align-middle text-[var(--admin-text)]">
+                      <button type="button" onClick={() => onPatientOpen(appointment)} className="inline-flex rounded-full bg-[var(--admin-status-selected-bg)] px-2 py-1 text-xs font-semibold text-[var(--admin-status-selected-text)]" title={`Open ${appointment.patient_name} visit history`}>{visitCounts.get(appointment.phone) ?? 0} {visitCounts.get(appointment.phone) === 1 ? "visit" : "visits"}</button>
                     </td>
-                    <td className="max-w-[220px] px-4 py-3 align-top text-[var(--admin-text)]">
-                      {appointment.message ? (
-                        <span title={appointment.message} className="line-clamp-2">
-                          {appointment.message}
-                        </span>
-                      ) : (
-                        <span className="text-[var(--admin-text-soft)]">—</span>
-                      )}
+                    <td className="px-4 py-2 align-middle text-[var(--admin-text-soft)]">
+                      <div className="leading-snug">
+                        <div className="whitespace-nowrap">{formatCreatedAtDate(appointment.created_at)}</div>
+                        <div className="whitespace-nowrap">{formatCreatedAtTime(appointment.created_at)}</div>
+                      </div>
                     </td>
-                    <td className="px-4 py-3 align-top">
+                    <td className="w-[220px] max-w-[220px] px-4 py-2 align-middle text-[var(--admin-text)]">
+                      <MessageCell message={appointment.message} />
+                    </td>
+                    <td className="px-4 py-2 align-middle">
                       <StatusCell
                         appointment={appointment}
                         isBusy={isBusy}
                         onStatusChange={onStatusChange}
                       />
                     </td>
-                    <td className="px-4 py-3 align-top text-[var(--admin-text-soft)]">
-                      <div className="leading-snug">
-                        <div className="whitespace-nowrap">{formatCreatedAtDate(appointment.created_at)}</div>
-                        <div className="whitespace-nowrap">{formatCreatedAtTime(appointment.created_at)}</div>
-                      </div>
+                    <td className="px-4 py-2 align-middle text-[var(--admin-text)]">
+                      <PreferredDateTimeCell
+                        appointment={appointment}
+                        busyId={busyId}
+                        onPreferredDateTimeUpdate={onPreferredDateTimeUpdate}
+                      />
                     </td>
-                    <td className="px-4 py-3 align-top">
+                    <td className="px-4 py-2 align-middle">
                       <ActionCell
                         appointment={appointment}
                         isBusy={isBusy}
-                        onViewRequest={onViewRequest}
                         onArchiveRequest={onArchiveRequest}
                       />
                     </td>

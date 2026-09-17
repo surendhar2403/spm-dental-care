@@ -26,12 +26,22 @@ export default function LogoutButton({ menuItem = false }: LogoutButtonProps) {
         type="button"
         onClick={handleLogout}
         disabled={isLoggingOut}
-        className="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium text-ink whitespace-nowrap transition-colors hover:bg-canvas-soft disabled:cursor-not-allowed disabled:opacity-70"
+        className="admin-logout-menu-item group flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-70"
       >
         <span className="flex items-center gap-3">
-          <span aria-hidden="true" className="inline-flex h-4 w-4 items-center justify-center text-base leading-none">
-            ⎋
-          </span>
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="admin-logout-icon h-4 w-4 shrink-0 transition-transform duration-150 group-hover:translate-x-0.5"
+          >
+            <path d="M14 4H6.5A1.5 1.5 0 0 0 5 5.5v13A1.5 1.5 0 0 0 6.5 20H14" />
+            <path d="M12 12h8M17 8l4 4-4 4" />
+          </svg>
           <span>{isLoggingOut ? "Signing out…" : "Log out"}</span>
         </span>
       </button>

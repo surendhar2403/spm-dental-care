@@ -1,6 +1,7 @@
 "use client";
 
 import type { SVGProps } from "react";
+import { useState } from "react";
 import { buildTelUrl, buildWhatsAppUrl } from "@/lib/utils";
 import type { Appointment } from "@/types/admin";
 import {
@@ -41,10 +42,29 @@ function EyeIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+function CalendarIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <rect x="3" y="4.5" width="18" height="16" rx="2" />
+      <path d="M16 2.5v4M8 2.5v4M3 9.5h18" />
+    </svg>
+  );
+}
+
+function ChevronIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
+
 export default function TodaysAppointments({
   appointments,
   onViewRequest,
 }: TodaysAppointmentsProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
   // preferred_time can be null (patient hasn't been given a confirmed time
   // yet) — push those to the end instead of ahead of timed appointments.
   const sorted = [...appointments].sort((a, b) =>
@@ -54,95 +74,108 @@ export default function TodaysAppointments({
   return (
     <section
       aria-labelledby="todays-appointments-heading"
-      className="flex flex-col gap-3 rounded-card border border-line bg-canvas p-4"
+      className="overflow-hidden rounded-card border border-line bg-canvas"
     >
-      <div className="flex items-center justify-between gap-3">
-        <h2 id="todays-appointments-heading" className="admin-heading font-display text-lg text-[var(--admin-text)]">
-          Today&apos;s Appointments
-        </h2>
-        <span className="rounded-full border border-line bg-[var(--admin-surface)] px-3 py-1 text-xs font-semibold text-[var(--admin-text)]">
-          {sorted.length}
+      <button
+        type="button"
+        onClick={() => setIsExpanded((expanded) => !expanded)}
+        aria-expanded={isExpanded}
+        aria-controls="todays-appointments-content"
+        className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left transition-colors hover:bg-[var(--admin-surface)]"
+      >
+        <span className="flex min-w-0 items-center gap-2.5">
+          <CalendarIcon className="h-5 w-5 shrink-0 text-[var(--admin-link)]" aria-hidden="true" />
+          <span id="todays-appointments-heading" className="admin-heading truncate font-display text-base text-[var(--admin-text)]">
+            Today&apos;s Appointments
+          </span>
         </span>
-      </div>
+        <span className="flex shrink-0 items-center gap-2 text-xs font-semibold text-[var(--admin-text-soft)]">
+          <span className="font-semibold text-[var(--admin-success)]">
+            {sorted.length} {sorted.length === 1 ? "appointment" : "appointments"}
+          </span>
+          <ChevronIcon
+            className={`h-4 w-4 transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`}
+            aria-hidden="true"
+          />
+        </span>
+      </button>
 
-      {sorted.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-line bg-canvas-soft p-6 text-center text-sm text-[var(--admin-text-soft)]">
-          No appointments scheduled for today.
+      <div
+        id="todays-appointments-content"
+        className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${isExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <div className="border-t border-line p-3">
+            {sorted.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-line bg-canvas-soft px-4 py-5 text-center text-sm text-[var(--admin-text-soft)]">
+                No appointments scheduled for today.
+              </div>
+            ) : (
+              <ul className="flex flex-col gap-1.5">
+                {sorted.map((appointment) => {
+                  const dateTime = `${formatDate(appointment.preferred_date)}, ${formatTime(appointment.preferred_time)}`;
+
+                  return (
+                    <li
+                      key={appointment.id}
+                      className="flex min-w-0 flex-col gap-2 rounded-lg border border-line bg-canvas-soft px-3 py-2 text-sm transition-colors hover:bg-[var(--admin-surface)] md:grid md:grid-cols-[minmax(5rem,0.7fr)_minmax(7rem,1fr)_minmax(8rem,1.4fr)_auto] md:items-center md:gap-3"
+                    >
+                      <span className="text-xs font-semibold text-[var(--admin-text-soft)]">
+                        {formatTime(appointment.preferred_time)}
+                      </span>
+
+                      <span className="truncate font-medium text-[var(--admin-text)]">
+                        {appointment.patient_name}
+                      </span>
+                      <span className="flex min-w-0 flex-col text-xs text-[var(--admin-text-soft)] sm:flex-row sm:items-center sm:gap-2">
+                        <span className="truncate">{appointment.treatment}</span>
+                        <span className="hidden text-[var(--admin-border)] sm:inline" aria-hidden="true">•</span>
+                        <span className="truncate">{dateTime}</span>
+                      </span>
+
+                      <div className="flex items-center justify-between gap-3 md:justify-end">
+                        <span className={`rounded-full px-2 py-1 text-[10px] font-semibold leading-none ${STATUS_STYLES[appointment.status]}`}>
+                          {formatStatusLabel(appointment.status)}
+                        </span>
+
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          <a
+                            href={buildTelUrl(appointment.phone)}
+                            aria-label="Call patient"
+                            title="Call patient"
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[var(--admin-link)] transition-colors hover:bg-[var(--admin-surface)] hover:text-[var(--admin-link-strong)]"
+                          >
+                            <PhoneIcon className="h-3.5 w-3.5" />
+                          </a>
+                          <a
+                            href={buildWhatsAppUrl(appointment.phone)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label="Open WhatsApp"
+                            title="Open WhatsApp"
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[var(--admin-success)] transition-colors hover:bg-[var(--admin-surface)]"
+                          >
+                            <WhatsAppIcon className="h-3.5 w-3.5" />
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => onViewRequest(appointment)}
+                            aria-label="View appointment"
+                            title="View appointment"
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[var(--admin-text-soft)] transition-colors hover:bg-[var(--admin-surface)] hover:text-[var(--admin-text)]"
+                          >
+                            <EyeIcon className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
         </div>
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {sorted.map((appointment) => {
-            const dateTime = `${formatDate(appointment.preferred_date)}, ${formatTime(appointment.preferred_time)}`;
-
-            return (
-              <li
-                key={appointment.id}
-                className="flex min-w-0 flex-col gap-2 rounded-lg border border-line bg-canvas-soft p-3 text-sm md:flex-row md:items-center md:gap-2 md:p-2.5"
-              >
-                <div className="flex min-w-0 items-center justify-between gap-2 md:flex-[1.2_1_0%]">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <span className="truncate text-sm font-medium text-[var(--admin-text)] md:text-[13px]">
-                      {appointment.patient_name}
-                    </span>
-                    <span
-                      className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold leading-none ${STATUS_STYLES[appointment.status]}`}
-                    >
-                      {formatStatusLabel(appointment.status)}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex min-w-0 flex-col gap-1 text-sm text-[var(--admin-text-soft)] md:flex-row md:items-center md:gap-2 md:text-[13px] md:[&>*:nth-child(2)]:block">
-                  <span className="truncate">{appointment.treatment}</span>
-                  <span className="hidden h-4 w-px shrink-0 bg-[var(--admin-border)] md:block" aria-hidden="true" />
-                  <span className="truncate">{dateTime}</span>
-                </div>
-
-                <div className="flex items-center justify-between gap-3 md:ml-auto md:shrink-0 md:justify-end">
-                  <a
-                    href={buildTelUrl(appointment.phone)}
-                    aria-label="Call patient"
-                    title="Call patient"
-                    className="truncate text-sm font-medium text-[var(--admin-link)] hover:text-[var(--admin-link-strong)] md:text-[13px]"
-                  >
-                    {appointment.phone}
-                  </a>
-
-                  <div className="flex shrink-0 items-center gap-1.5 md:gap-2">
-                    <a
-                      href={buildTelUrl(appointment.phone)}
-                      aria-label="Call patient"
-                      title="Call patient"
-                      className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[var(--admin-link)] transition-colors hover:bg-[var(--admin-surface)] hover:text-[var(--admin-link-strong)] md:h-7 md:w-7"
-                    >
-                      <PhoneIcon className="h-4 w-4 md:h-3.5 md:w-3.5" />
-                    </a>
-                    <a
-                      href={buildWhatsAppUrl(appointment.phone)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      aria-label="Open WhatsApp"
-                      title="Open WhatsApp"
-                      className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[var(--admin-success)] transition-colors hover:bg-[var(--admin-surface)] hover:text-[var(--admin-success)] md:h-7 md:w-7"
-                    >
-                      <WhatsAppIcon className="h-4 w-4 md:h-3.5 md:w-3.5" />
-                    </a>
-                    <button
-                      type="button"
-                      onClick={() => onViewRequest(appointment)}
-                      aria-label="View appointment"
-                      title="View appointment"
-                      className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[var(--admin-text-soft)] transition-colors hover:bg-[var(--admin-surface)] hover:text-[var(--admin-text)] md:h-7 md:w-7"
-                    >
-                      <EyeIcon className="h-4 w-4 md:h-3.5 md:w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+      </div>
     </section>
   );
 }

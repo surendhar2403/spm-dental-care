@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { Doctor } from "@/types/admin";
+import SettingsActionIcon from "./SettingsActionIcon";
 
 export interface NewDoctorValues {
   name: string;
@@ -108,14 +109,7 @@ export default function ManageDoctorsModal({
               Add or remove the dentists listed on the clinic&apos;s doctor roster.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="flex-none text-ink/50 transition-colors hover:text-ink"
-          >
-            ✕
-          </button>
+          <SettingsActionIcon icon="x" label="Close manage doctors" onClick={onClose} />
         </div>
 
         <form
@@ -264,14 +258,14 @@ export default function ManageDoctorsModal({
                         </button>
                       </div>
                     ) : (
-                      <button
-                        type="button"
+                      <SettingsActionIcon
+                        icon="trash"
+                        label={`Remove ${doctor.name}`}
                         onClick={() => setConfirmingId(doctor.id)}
                         disabled={busyId !== null}
-                        className="flex-none text-xs font-medium text-red-600 hover:underline disabled:cursor-not-allowed disabled:text-ink/40 disabled:no-underline"
-                      >
-                        Remove
-                      </button>
+                        tone="danger"
+                        className="flex-none"
+                      />
                     )}
                   </li>
                 );

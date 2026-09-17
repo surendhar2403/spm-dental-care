@@ -65,7 +65,7 @@ export default function MissedAppointmentAlert({ className = "" }: { className?:
         onMouseLeave={() => setIsVisible(false)}
         onFocus={() => setIsVisible(true)}
         onBlur={() => setIsVisible(false)}
-        className="relative inline-flex h-2.5 w-2.5 items-center justify-center rounded-full bg-red-500/90 shadow-sm ring-1 ring-red-200 transition-opacity hover:bg-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-1 focus-visible:ring-offset-transparent"
+        className="admin-missed-alert-trigger relative inline-flex h-2.5 w-2.5 items-center justify-center rounded-full bg-red-500/90 shadow-sm ring-1 ring-red-200 transition-opacity hover:bg-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-1 focus-visible:ring-offset-transparent"
       />
 
       {isVisible && typeof document !== "undefined"
@@ -73,7 +73,7 @@ export default function MissedAppointmentAlert({ className = "" }: { className?:
             <div
               ref={tooltipRef}
               role="tooltip"
-              className="pointer-events-none fixed whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white shadow-lg shadow-slate-900/20 dark:bg-slate-800"
+              className="admin-missed-alert-tooltip pointer-events-none fixed whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white shadow-lg shadow-slate-900/20 dark:bg-slate-800"
               style={{
                 top: `${position.top}px`,
                 left: `${position.left}px`,

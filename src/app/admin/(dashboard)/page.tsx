@@ -13,6 +13,7 @@ import {
   type Doctor,
 } from "@/types/admin";
 import AppointmentsTable from "./AppointmentsTable";
+import StatusUpdateToast from "./StatusUpdateToast";
 import ConfirmAppointmentModal from "./ConfirmAppointmentModal";
 import DeleteConfirmDialog from "./DeleteConfirmDialog";
 import ArchiveConfirmDialog from "./ArchiveConfirmDialog";
@@ -27,8 +28,8 @@ import type { AdminTestimonial } from "@/types/admin";
 import type { ClinicGalleryImage, ClinicSettings } from "@/types";
 import PaginationControls from "./PaginationControls";
 import TodaysAppointments from "./TodaysAppointments";
-import AppointmentDetailsModal from "./AppointmentDetailsModal";
-import { formatDate, formatTime } from "./appointmentDisplay";
+import PatientDetailsDrawer from "./PatientDetailsDrawer";
+import { formatDate, formatTime, formatStatusLabel } from "./appointmentDisplay";
 import {
   DATE_FILTER_OPTIONS,
   getLocalISODate,
@@ -36,12 +37,163 @@ import {
   type DateFilterMode,
 } from "./dateFilterUtils";
 
+function SummaryIcon({ icon }: { icon: "calendar" | "clock" | "check" | "flag" | "cancel" }) {
+  const sharedProps = {
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 2,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    className: "h-[18px] w-[18px]",
+    "aria-hidden": true,
+  };
+
+  if (icon === "clock") {
+    return (
+      <svg {...sharedProps}>
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="M12 7v5l3 2" />
+      </svg>
+    );
+  }
+
+  if (icon === "check") {
+    return (
+      <svg {...sharedProps}>
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="m8.5 12 2.3 2.3 4.7-4.7" />
+      </svg>
+    );
+  }
+
+  if (icon === "flag") {
+    return (
+      <svg {...sharedProps}>
+        <path d="M6 20V4" />
+        <path d="M6 5c3-2 5 2 8 0s4 0 4 0v8s-1-2-4 0-5-2-8 0" />
+      </svg>
+    );
+  }
+
+  if (icon === "cancel") {
+    return (
+      <svg {...sharedProps}>
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="m9 9 6 6M15 9l-6 6" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg {...sharedProps}>
+      <rect x="4" y="5.5" width="16" height="14" rx="2" />
+      <path d="M8 3.5v4M16 3.5v4M4 10h16" />
+    </svg>
+  );
+}
+
+function FilterDropdown({
+  value,
+  options,
+  onChange,
+  ariaLabel,
+}: {
+  value: string;
+  options: Array<{ value: string; label: string }>;
+  onChange: (value: string) => void;
+  ariaLabel: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const selectedOption = options.find((option) => option.value === value) ?? options[0];
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    function handlePointerDown(event: PointerEvent) {
+      if (!dropdownRef.current?.contains(event.target as Node)) setIsOpen(false);
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setIsOpen(false);
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen]);
+
+  return (
+    <div ref={dropdownRef} className="relative z-30 w-full sm:w-auto">
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        aria-label={ariaLabel}
+        onClick={() => setIsOpen((open) => !open)}
+        className="flex w-full items-center justify-between gap-6 rounded-xl border border-line bg-[var(--admin-surface)] px-3.5 py-2.5 text-left text-sm text-[var(--admin-text)] transition-colors hover:border-blue-400 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20 sm:min-w-[140px]"
+      >
+        <span>{selectedOption?.label}</span>
+        <svg
+          viewBox="0 0 20 20"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={`h-4 w-4 shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`}
+          aria-hidden="true"
+        >
+          <path d="m5.5 7.5 4.5 4.5 4.5-4.5" />
+        </svg>
+      </button>
+      <div
+        role="listbox"
+        aria-label={`${ariaLabel} options`}
+        className={`absolute left-0 top-[calc(100%+0.35rem)] z-50 w-full min-w-max origin-top rounded-xl border border-line bg-[var(--admin-surface-strong)] p-1 shadow-lg transition-all duration-150 ${
+          isOpen
+            ? "visible translate-y-0 opacity-100"
+            : "invisible pointer-events-none -translate-y-1 opacity-0"
+        }`}
+      >
+        {options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            role="option"
+            aria-selected={option.value === value}
+            onClick={() => {
+              setIsOpen(false);
+              onChange(option.value);
+            }}
+            className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-canvas-soft ${
+              option.value === value ? "bg-blue-50 font-semibold text-blue-800" : "text-[var(--admin-text)]"
+            }`}
+          >
+            <span>{option.label}</span>
+            {option.value === value ? (
+              <span className="ml-4 text-blue-700" aria-hidden="true">
+                ✓
+              </span>
+            ) : null}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 type LoadState = "loading" | "loaded" | "error";
 
 const LOAD_ERROR_MESSAGE =
   "We couldn't load appointments right now. Please check your connection and try again.";
 const ACTION_ERROR_MESSAGE = "That didn't go through. Please try again.";
-const APPOINTMENTS_PAGE_SIZE = 10;
+const DEFAULT_APPOINTMENTS_PAGE_SIZE = 5;
+type AppointmentsPageSize = 5 | 10 | 20 | 50;
 
 export default function AdminDashboardPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -52,19 +204,27 @@ export default function AdminDashboardPage() {
   const [dateFilterMode, setDateFilterMode] = useState<DateFilterMode>("all");
   const [customDate, setCustomDate] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [appointmentsPageSize, setAppointmentsPageSize] = useState<AppointmentsPageSize>(DEFAULT_APPOINTMENTS_PAGE_SIZE);
+  const [selectedAppointmentIds, setSelectedAppointmentIds] = useState<Set<string>>(() => new Set());
+  const [selectAllActive, setSelectAllActive] = useState(false);
 
   const [busyId, setBusyId] = useState<string | null>(null);
   const [pendingArchive, setPendingArchive] = useState<Appointment | null>(null);
   const [pendingPermanentDelete, setPendingPermanentDelete] = useState<Appointment | null>(null);
-  const [viewingAppointmentId, setViewingAppointmentId] = useState<string | null>(null);
+  const [viewingPatientPhone, setViewingPatientPhone] = useState<string | null>(null);
   const [viewingArchivedId, setViewingArchivedId] = useState<string | null>(null);
   const [isBinOpen, setIsBinOpen] = useState(false);
   const [isNewAppointmentOpen, setIsNewAppointmentOpen] = useState(false);
+  const [newAppointmentPrefill, setNewAppointmentPrefill] = useState<{ patientName?: string; phone?: string }>({});
   const [isCreatingAppointment, setIsCreatingAppointment] = useState(false);
   const [banner, setBanner] = useState<{
     type: "success" | "error";
     message: string;
     undo?: () => void;
+  } | null>(null);
+  const [statusUpdateToast, setStatusUpdateToast] = useState<{
+    id: number;
+    message: string;
   } | null>(null);
 
   const [editingTreatmentId, setEditingTreatmentId] = useState<string | null>(null);
@@ -301,8 +461,20 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     if (!banner) return;
-    const timer = setTimeout(() => setBanner(null), banner.undo ? 5000 : 4000);
+    const timer = setTimeout(() => setBanner(null), banner.undo ? 8000 : 4000);
     return () => clearTimeout(timer);
+  }, [banner]);
+
+  useEffect(() => {
+    if (!banner || banner.type !== "success") return;
+
+    setStatusUpdateToast((current) => ({
+      id: (current?.id ?? 0) + 1,
+      message: banner.message,
+      ...(banner.undo
+        ? { action: { label: "Undo", onClick: banner.undo } }
+        : {}),
+    }));
   }, [banner]);
 
   useEffect(() => {
@@ -342,6 +514,21 @@ export default function AdminDashboardPage() {
     () => appointments.filter((appointment) => !appointment.archived_at),
     [appointments],
   );
+
+  const patientKey = (phone: string) => {
+    const normalized = normalizeIndianMobile(phone);
+    if (normalized) return normalized;
+    const digits = phone.replace(/\D/g, "");
+    return digits || phone.trim().toLowerCase();
+  };
+  const visitCounts = useMemo(() => {
+    const appointmentsByPatient = new Map<string, number>();
+    for (const appointment of activeAppointments) {
+      const key = patientKey(appointment.phone);
+      appointmentsByPatient.set(key, (appointmentsByPatient.get(key) ?? 0) + 1);
+    }
+    return new Map(activeAppointments.map((appointment) => [appointment.phone, appointmentsByPatient.get(patientKey(appointment.phone)) ?? 0]));
+  }, [activeAppointments]);
 
   const archivedAppointments = useMemo(
     () =>
@@ -910,31 +1097,49 @@ export default function AdminDashboardPage() {
     key: "all" | AppointmentStatus;
     label: string;
     count: number;
+    description: string;
+    icon: "calendar" | "clock" | "check" | "flag" | "cancel";
+    theme: string;
   }> = [
     {
       key: "all",
       label: "Total",
       count: activeAppointments.length,
+      description: "All appointments",
+      icon: "calendar",
+      theme: "border-blue-100 bg-blue-50 text-blue-700",
     },
     {
       key: "pending",
       label: "Pending",
       count: statusCounts.pending,
+      description: "Awaiting confirmation",
+      icon: "clock",
+      theme: "border-amber-100 bg-amber-50 text-amber-700",
     },
     {
       key: "confirmed",
       label: "Confirmed",
       count: statusCounts.confirmed,
+      description: "Confirmed appointments",
+      icon: "check",
+      theme: "border-emerald-100 bg-emerald-50 text-emerald-700",
     },
     {
       key: "completed",
       label: "Completed",
       count: statusCounts.completed,
+      description: "Successfully completed",
+      icon: "flag",
+      theme: "border-violet-100 bg-violet-50 text-violet-700",
     },
     {
       key: "cancelled",
       label: "Cancelled",
       count: statusCounts.cancelled,
+      description: "Cancelled appointments",
+      icon: "cancel",
+      theme: "border-rose-100 bg-rose-50 text-rose-700",
     },
   ];
 
@@ -965,25 +1170,25 @@ export default function AdminDashboardPage() {
 
   const hasActiveFilters = Boolean(search || statusFilter !== "all" || dateFilterMode !== "all");
 
-  // Pagination (Admin Dashboard requirement 4). Purely a client-side slice
-  // of `filteredAppointments` — the existing architecture already loads
-  // every active appointment into memory and filters it there, so this
-  // keeps that same approach rather than introducing a separate
-  // server-side paging query. Every summary count/statistic above is
-  // computed from `activeAppointments`/`statusCounts`, never from the
-  // paginated slice, so pagination can never skew them.
-  const totalPages = Math.max(1, Math.ceil(filteredAppointments.length / APPOINTMENTS_PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(filteredAppointments.length / appointmentsPageSize));
   const safeCurrentPage = Math.min(currentPage, totalPages);
   const paginatedAppointments = useMemo(() => {
-    const start = (safeCurrentPage - 1) * APPOINTMENTS_PAGE_SIZE;
-    return filteredAppointments.slice(start, start + APPOINTMENTS_PAGE_SIZE);
-  }, [filteredAppointments, safeCurrentPage]);
+    const start = (safeCurrentPage - 1) * appointmentsPageSize;
+    return filteredAppointments.slice(start, start + appointmentsPageSize);
+  }, [appointmentsPageSize, filteredAppointments, safeCurrentPage]);
 
   // Reset to page 1 whenever search/status/date filters change, so an
   // admin never lands on a now-empty page after narrowing results.
   useEffect(() => {
     setCurrentPage(1);
+    setSelectedAppointmentIds(new Set());
+    setSelectAllActive(false);
   }, [search, statusFilter, dateFilterMode, customDate]);
+
+  useEffect(() => {
+    setSelectedAppointmentIds(new Set());
+    setSelectAllActive(false);
+  }, [safeCurrentPage]);
 
   // Treatment option list fed to the "+ New Appointment" form and the
   // inline treatment editor. Falls back to the static
@@ -994,15 +1199,80 @@ export default function AdminDashboardPage() {
     [treatments],
   );
 
-  const viewingAppointment = useMemo(
-    () => activeAppointments.find((appointment) => appointment.id === viewingAppointmentId) ?? null,
-    [activeAppointments, viewingAppointmentId],
+  const viewingPatientAppointments = useMemo(
+    () => viewingPatientPhone
+      ? activeAppointments.filter((appointment) => patientKey(appointment.phone) === patientKey(viewingPatientPhone))
+      : [],
+    [activeAppointments, viewingPatientPhone],
   );
 
   const viewingArchivedAppointment = useMemo(
     () => archivedAppointments.find((appointment) => appointment.id === viewingArchivedId) ?? null,
     [archivedAppointments, viewingArchivedId],
   );
+
+  async function handleBulkStatusChange(ids: string[], status: AppointmentStatus): Promise<boolean> {
+    if (ids.length === 0) return false;
+
+    const previousStatuses = ids
+      .map((id) => {
+        const appointment = appointments.find((item) => item.id === id);
+        return appointment ? { id, status: appointment.status } : null;
+      })
+      .filter((item): item is { id: string; status: AppointmentStatus } => item !== null);
+
+    setBusyId("bulk-status");
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.from("appointments").update({ status }).in("id", ids);
+
+      if (error) {
+        setBanner({ type: "error", message: ACTION_ERROR_MESSAGE });
+        return false;
+      }
+
+      setAppointments((current) =>
+        current.map((appointment) => (ids.includes(appointment.id) ? { ...appointment, status } : appointment)),
+      );
+      setSelectedAppointmentIds(new Set());
+      setBanner({
+        type: "success",
+        message: `Updated ${previousStatuses.length} appointment${previousStatuses.length === 1 ? "" : "s"} to ${formatStatusLabel(status)}.`,
+        undo: () => {
+          void handleBulkStatusUndo(previousStatuses);
+        },
+      });
+      return true;
+    } catch {
+      setBanner({ type: "error", message: ACTION_ERROR_MESSAGE });
+      return false;
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function handleBulkStatusUndo(previousStatuses: Array<{ id: string; status: AppointmentStatus }>) {
+    try {
+      const supabase = createClient();
+      const results = await Promise.all(
+        previousStatuses.map(({ id, status }) => supabase.from("appointments").update({ status }).eq("id", id)),
+      );
+      if (results.some(({ error }) => error)) {
+        setBanner({ type: "error", message: ACTION_ERROR_MESSAGE });
+        return;
+      }
+
+      setAppointments((current) =>
+        current.map((appointment) => {
+          const previous = previousStatuses.find((item) => item.id === appointment.id);
+          return previous ? { ...appointment, status: previous.status } : appointment;
+        }),
+      );
+      setBanner({ type: "success", message: "Previous appointment statuses restored." });
+    } catch {
+      setBanner({ type: "error", message: ACTION_ERROR_MESSAGE });
+    }
+  }
 
   async function handleStatusChange(id: string, status: AppointmentStatus): Promise<boolean> {
     const previous = appointments;
@@ -1023,7 +1293,10 @@ export default function AdminDashboardPage() {
         return false;
       }
 
-      setBanner({ type: "success", message: `Status updated to "${status}".` });
+      setStatusUpdateToast((current) => ({
+        id: (current?.id ?? 0) + 1,
+        message: `Status updated to "${status}".`,
+      }));
       return true;
     } catch {
       setAppointments(previous);
@@ -1285,6 +1558,35 @@ export default function AdminDashboardPage() {
     }
   }
 
+  async function handleRestoreAll() {
+    if (archivedAppointments.length === 0) return;
+    const ids = archivedAppointments.map((appointment) => appointment.id);
+    setBusyId("archived-bulk");
+
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("appointments")
+        .update({ archived_at: null })
+        .in("id", ids);
+
+      if (error) {
+        setBanner({ type: "error", message: ACTION_ERROR_MESSAGE });
+      } else {
+        setAppointments((current) =>
+          current.map((appointment) =>
+            ids.includes(appointment.id) ? { ...appointment, archived_at: null } : appointment,
+          ),
+        );
+        setBanner({ type: "success", message: `Restored ${ids.length} archived appointments.` });
+      }
+    } catch {
+      setBanner({ type: "error", message: ACTION_ERROR_MESSAGE });
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   /** Permanent delete — only reachable from inside Recently Deleted / Bin. */
   async function handlePermanentDeleteConfirmed() {
     if (!pendingPermanentDelete) return;
@@ -1309,6 +1611,30 @@ export default function AdminDashboardPage() {
     } finally {
       setBusyId(null);
       setPendingPermanentDelete(null);
+    }
+  }
+
+  async function handlePermanentDeleteAll() {
+    if (archivedAppointments.length === 0) return;
+    if (!window.confirm(`Permanently delete all ${archivedAppointments.length} archived appointments?`)) return;
+
+    const ids = archivedAppointments.map((appointment) => appointment.id);
+    setBusyId("archived-bulk");
+
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.from("appointments").delete().in("id", ids);
+
+      if (error) {
+        setBanner({ type: "error", message: ACTION_ERROR_MESSAGE });
+      } else {
+        setAppointments((current) => current.filter((appointment) => !ids.includes(appointment.id)));
+        setBanner({ type: "success", message: `Permanently deleted ${ids.length} archived appointments.` });
+      }
+    } catch {
+      setBanner({ type: "error", message: ACTION_ERROR_MESSAGE });
+    } finally {
+      setBusyId(null);
     }
   }
 
@@ -1546,20 +1872,11 @@ export default function AdminDashboardPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 pb-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex flex-col gap-1">
-          <h1 className="admin-heading font-display text-2xl leading-tight text-[var(--admin-text)]">Appointments</h1>
-          <p className="text-sm text-[var(--admin-text-soft)]">
-            Manage appointment requests submitted from the website.
-          </p>
-        </div>
-      </div>
-
+    <div className="flex flex-col gap-4 pb-0">
       {loadState !== "loading" ? (
         <TodaysAppointments
           appointments={todaysAppointments}
-          onViewRequest={(appointment) => setViewingAppointmentId(appointment.id)}
+          onViewRequest={(appointment) => setViewingPatientPhone(appointment.phone)}
         />
       ) : null}
 
@@ -1572,10 +1889,13 @@ export default function AdminDashboardPage() {
           ? Array.from({ length: 5 }).map((_, index) => (
               <div
                 key={index}
-                className="animate-pulse rounded-card border border-line bg-canvas-soft p-4"
+                className="flex min-h-[52px] animate-pulse items-center gap-2 rounded-xl border border-line bg-canvas-soft p-2"
               >
-                <div className="h-3 w-16 rounded bg-line" />
-                <div className="mt-3 h-6 w-10 rounded bg-line" />
+                <div className="h-7 w-7 shrink-0 rounded-full bg-line" />
+                <div>
+                  <div className="h-3 w-16 rounded bg-line" />
+                  <div className="mt-2 h-6 w-10 rounded bg-line" />
+                </div>
               </div>
             ))
           : summaryCards.map((card) => {
@@ -1586,78 +1906,70 @@ export default function AdminDashboardPage() {
                   type="button"
                   onClick={() => setStatusFilter(card.key)}
                   aria-pressed={isActive}
-                  className={`admin-status-card rounded-card border p-4 text-left transition-colors focus:outline-none focus:ring-2 focus:ring-blue-600 ${
+                  className={`admin-status-card admin-summary-card admin-summary-${card.key} ${card.theme} flex min-h-[52px] items-center gap-2 rounded-xl border p-2 text-left shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-600 ${
                     isActive ? "selected" : ""
                   }`}
                 >
-                  <div className="admin-status-label text-xs font-medium uppercase tracking-wide">
-                    {card.label}
+                  <span className="admin-summary-icon flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/65">
+                    <SummaryIcon icon={card.icon} />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="admin-status-label text-[10px] font-semibold uppercase tracking-wide">
+                      {card.label}
+                    </div>
+                    <div className="truncate text-[9px] leading-tight opacity-75">
+                      {card.description}
+                    </div>
                   </div>
-                  <div className="admin-status-value mt-1 text-2xl font-semibold">{card.count}</div>
+                  <div className="admin-status-value ml-auto shrink-0 px-1 text-2xl font-bold leading-none">
+                    {card.count}
+                  </div>
                 </button>
               );
             })}
       </div>
 
-      {banner ? (
+      {banner && banner.type === "error" ? (
         <div
           role="status"
-          className={`${banner.undo ? "fixed bottom-4 left-4 right-4 z-50 mx-auto flex max-w-md items-center justify-between gap-4 shadow-lg" : ""} rounded-lg border px-4 py-3 text-sm ${
-            banner.type === "success"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-              : "border-red-200 bg-red-50 text-red-600"
-          }`}
+          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600"
         >
           <span>{banner.message}</span>
-          {banner.undo ? (
-            <button
-              type="button"
-              onClick={banner.undo}
-              className="shrink-0 font-semibold underline underline-offset-2 transition-opacity hover:opacity-75"
-            >
-              Undo
-            </button>
-          ) : null}
         </div>
       ) : null}
 
-      <div className="flex flex-col gap-3 rounded-2xl border border-line bg-[var(--admin-surface-strong)] p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-2 rounded-2xl border border-line bg-[var(--admin-surface-strong)] p-2.5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center">
           <input
             type="text"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search by name or phone"
-            className="w-full rounded-xl border border-line bg-[var(--admin-surface)] px-3.5 py-2.5 text-sm text-[var(--admin-text)] placeholder:text-[var(--admin-text-soft)] focus:border-blue-600 focus:outline-none sm:max-w-xs"
+            className="w-full rounded-xl border border-line bg-[var(--admin-surface)] px-3.5 py-2 text-sm text-[var(--admin-text)] placeholder:text-[var(--admin-text-soft)] focus:border-blue-600 focus:outline-none sm:max-w-xs"
           />
-          <select
+          <FilterDropdown
             value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value as "all" | AppointmentStatus)}
-            className="rounded-xl border border-line bg-[var(--admin-surface)] px-3.5 py-2.5 text-sm text-[var(--admin-text)] focus:border-blue-600 focus:outline-none"
-          >
-            <option value="all">All statuses</option>
-            {APPOINTMENT_STATUSES.map((status) => (
-              <option key={status} value={status} className="capitalize">
-                {status}
-              </option>
-            ))}
-            <option value="no_show">No Show</option>
-          </select>
-          <select
+            ariaLabel="Filter by status"
+            options={[
+              { value: "all", label: "All statuses" },
+              ...APPOINTMENT_STATUSES.map((status) => ({
+                value: status,
+                label: status.charAt(0).toUpperCase() + status.slice(1),
+              })),
+              { value: "no_show", label: "No Show" },
+            ]}
+            onChange={(value) => setStatusFilter(value as "all" | AppointmentStatus)}
+          />
+          <FilterDropdown
             value={dateFilterMode}
-            onChange={(event) => {
-              const mode = event.target.value as DateFilterMode;
+            ariaLabel="Filter by date"
+            options={DATE_FILTER_OPTIONS}
+            onChange={(value) => {
+              const mode = value as DateFilterMode;
               setDateFilterMode(mode);
               if (mode !== "custom") setCustomDate("");
             }}
-            className="rounded-xl border border-line bg-[var(--admin-surface)] px-3.5 py-2.5 text-sm text-[var(--admin-text)] focus:border-blue-600 focus:outline-none"
-          >
-            {DATE_FILTER_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+          />
           {dateFilterMode === "custom" ? (
             <input
               type="date"
@@ -1667,7 +1979,7 @@ export default function AdminDashboardPage() {
             />
           ) : null}
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           {hasActiveFilters ? (
             <button
               type="button"
@@ -1685,7 +1997,7 @@ export default function AdminDashboardPage() {
           <button
             type="button"
             onClick={() => setIsNewAppointmentOpen(true)}
-            className="inline-flex items-center justify-center whitespace-nowrap rounded-full bg-blue-900 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-800"
+            className="inline-flex items-center justify-center whitespace-nowrap rounded-full bg-blue-900 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-800"
           >
             + New Appointment
           </button>
@@ -1717,11 +2029,17 @@ export default function AdminDashboardPage() {
         <>
           <AppointmentsTable
             appointments={paginatedAppointments}
+            selectedAppointmentIds={selectedAppointmentIds}
+            onSelectionChange={setSelectedAppointmentIds}
+            selectAllActive={selectAllActive}
+            onSelectAllActiveChange={setSelectAllActive}
+            onBulkStatusChange={handleBulkStatusChange}
+            visitCounts={visitCounts}
             busyId={busyId}
             treatmentOptions={treatmentOptions}
             onStatusChange={handleStatusSelectChange}
             onArchiveRequest={setPendingArchive}
-            onViewRequest={(appointment) => setViewingAppointmentId(appointment.id)}
+            onPatientOpen={(appointment) => setViewingPatientPhone(appointment.phone)}
             onPreferredDateTimeUpdate={handlePreferredDateTimeUpdate}
             editingTreatmentId={editingTreatmentId}
             treatmentDraft={treatmentDraft}
@@ -1733,7 +2051,15 @@ export default function AdminDashboardPage() {
           <PaginationControls
             currentPage={safeCurrentPage}
             totalPages={totalPages}
+            totalItems={filteredAppointments.length}
+            pageSize={appointmentsPageSize}
             onPageChange={setCurrentPage}
+            onPageSizeChange={(pageSize) => {
+              setAppointmentsPageSize(pageSize);
+              setCurrentPage(1);
+              setSelectedAppointmentIds(new Set());
+              setSelectAllActive(false);
+            }}
           />
         </>
       )}
@@ -1756,21 +2082,16 @@ export default function AdminDashboardPage() {
         />
       ) : null}
 
-      {viewingAppointment ? (
-        <AppointmentDetailsModal
-          appointment={viewingAppointment}
-          isBusy={busyId === viewingAppointment.id}
-          busyId={busyId}
-          treatmentOptions={treatmentOptions}
-          onClose={() => setViewingAppointmentId(null)}
-          onStatusChange={handleStatusSelectChange}
-          onPreferredDateTimeUpdate={handlePreferredDateTimeUpdate}
-          editingTreatmentId={editingTreatmentId}
-          treatmentDraft={treatmentDraft}
-          onEditTreatmentStart={handleEditTreatmentStart}
-          onEditTreatmentCancel={handleEditTreatmentCancel}
-          onTreatmentDraftChange={setTreatmentDraft}
-          onEditTreatmentSave={handleEditTreatmentSave}
+      {viewingPatientAppointments.length > 0 ? (
+        <PatientDetailsDrawer
+          appointments={viewingPatientAppointments}
+          visitCount={visitCounts.get(viewingPatientAppointments[0]?.phone ?? "") ?? 0}
+          onClose={() => setViewingPatientPhone(null)}
+          onBookNewAppointment={(patient) => {
+            setViewingPatientPhone(null);
+            setNewAppointmentPrefill({ patientName: patient.name, phone: patient.phone });
+            setIsNewAppointmentOpen(true);
+          }}
         />
       ) : null}
 
@@ -1778,6 +2099,7 @@ export default function AdminDashboardPage() {
         <NewAppointmentModal
           isSaving={isCreatingAppointment}
           treatmentOptions={treatmentOptions}
+          initialValues={newAppointmentPrefill}
           onCancel={() => setIsNewAppointmentOpen(false)}
           onSave={handleCreateAppointment}
         />
@@ -1853,7 +2175,8 @@ export default function AdminDashboardPage() {
           appointments={archivedAppointments}
           busyId={busyId}
           onClose={() => setIsBinOpen(false)}
-          onViewRequest={(appointment) => setViewingArchivedId(appointment.id)}
+          onRestoreAll={handleRestoreAll}
+          onPermanentDeleteAll={handlePermanentDeleteAll}
           onRestoreRequest={handleRestore}
           onPermanentDeleteRequest={setPendingPermanentDelete}
         />
@@ -1874,6 +2197,11 @@ export default function AdminDashboardPage() {
           onConfirm={handlePermanentDeleteConfirmed}
         />
       ) : null}
+
+      <StatusUpdateToast
+        toast={statusUpdateToast}
+        onDismiss={() => setStatusUpdateToast(null)}
+      />
     </div>
   );
 }
