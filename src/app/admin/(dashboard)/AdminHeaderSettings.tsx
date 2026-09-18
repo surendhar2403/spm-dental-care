@@ -153,7 +153,7 @@ export default function AdminHeaderSettings() {
     };
   }, [isOpen, isColorMenuOpen]);
 
-  function triggerAction(action: "doctors" | "treatments" | "testimonials" | "clinic" | "bin") {
+  function triggerAction(action: "doctors" | "treatments" | "testimonials" | "clinic" | "bin" | "security") {
     window.dispatchEvent(
       new CustomEvent("admin-settings-action", {
         detail: { action },
@@ -223,6 +223,17 @@ export default function AdminHeaderSettings() {
           <span className="flex items-center gap-3">
             <span aria-hidden="true" className="inline-flex h-4 w-4 items-center justify-center text-base leading-none">🏥</span>
             <span>Manage Clinic Info</span>
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => triggerAction("security")}
+          className="flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium text-ink whitespace-nowrap transition-colors hover:bg-canvas-soft"
+        >
+          <span className="flex items-center gap-3">
+            <span aria-hidden="true" className="inline-flex h-4 w-4 items-center justify-center text-base leading-none">🔒</span>
+            <span>Security</span>
           </span>
         </button>
 

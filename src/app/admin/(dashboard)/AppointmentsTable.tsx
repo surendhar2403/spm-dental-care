@@ -110,11 +110,11 @@ function MessageCell({ message }: { message: string | null }) {
             title="View full appointment message"
             className="h-9 max-h-9 min-w-0 max-w-full flex-1 cursor-pointer overflow-hidden rounded-lg border border-[color-mix(in_srgb,var(--admin-link)_24%,var(--admin-border))] bg-[color-mix(in_srgb,var(--admin-link)_4%,var(--admin-surface))] px-2 py-1 text-left text-xs leading-4 text-[var(--admin-text)] transition-colors duration-150 hover:border-[color-mix(in_srgb,var(--admin-link)_42%,var(--admin-border))] hover:bg-[color-mix(in_srgb,var(--admin-link)_9%,var(--admin-surface))] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-link)]"
           >
-            <span className="block line-clamp-2 whitespace-pre-wrap break-words">{message}</span>
+            <span className="admin-appointment-selected-text block line-clamp-2 whitespace-pre-wrap break-words">{message}</span>
           </button>
         ) : (
           <div className="h-9 max-h-9 min-w-0 max-w-full flex-1 overflow-hidden rounded-lg border border-[color-mix(in_srgb,var(--admin-link)_24%,var(--admin-border))] bg-[color-mix(in_srgb,var(--admin-link)_4%,var(--admin-surface))] px-2 py-1 text-xs leading-4 text-[var(--admin-text-soft)]">
-            No message
+            <span className="admin-appointment-selected-text">No message</span>
           </div>
         )}
       </div>
@@ -545,10 +545,12 @@ function BulkStatusToolbar({
 function PreferredDateTimeCell({
   appointment,
   busyId,
+  compact = false,
   onPreferredDateTimeUpdate,
 }: {
   appointment: Appointment;
   busyId: string | null;
+  compact?: boolean;
   onPreferredDateTimeUpdate: (
     id: string,
     preferredDate: string,
@@ -642,11 +644,19 @@ function PreferredDateTimeCell({
       className="block rounded-md px-1 py-0.5 text-left transition-colors hover:bg-[var(--admin-surface)]"
       title="Edit appointment date and time"
     >
-      <div className="leading-snug">
-        <div className="whitespace-nowrap">{formatDate(appointment.preferred_date)}</div>
-        <div className="whitespace-nowrap text-[var(--admin-text-soft)]">
-          {formatTime(appointment.preferred_time)}
-        </div>
+      <div className={compact ? "whitespace-nowrap text-[10px] leading-snug" : "leading-snug"}>
+        {compact ? (
+          <span>
+            {formatDate(appointment.preferred_date)}, {formatTime(appointment.preferred_time)}
+          </span>
+        ) : (
+          <>
+            <div className="whitespace-nowrap">{formatDate(appointment.preferred_date)}</div>
+            <div className="whitespace-nowrap text-[var(--admin-text-soft)]">
+              {formatTime(appointment.preferred_time)}
+            </div>
+          </>
+        )}
       </div>
     </button>
   );
@@ -749,7 +759,7 @@ export default function AppointmentsTable({
           return (
             <li
               key={appointment.id}
-              className={`admin-appointment-card flex flex-col gap-3 rounded-2xl border bg-[var(--admin-surface-strong)] p-4 shadow-sm ${selectedAppointmentIds.has(appointment.id) ? "admin-appointment-card-selected" : ""}`}
+              className={`admin-appointment-card flex flex-col gap-2.5 rounded-2xl border bg-[var(--admin-surface-strong)] p-3 shadow-sm ${selectedAppointmentIds.has(appointment.id) ? "admin-appointment-card-selected" : ""}`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex min-w-0 flex-1 items-center gap-2.5">
@@ -782,12 +792,12 @@ export default function AppointmentsTable({
                 </div>
               </div>
 
-              <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
-                <div className="col-span-2">
-                  <dt className="text-xs font-medium uppercase tracking-wide text-[var(--admin-text-soft)]">
+              <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-sm">
+                <div className="col-start-1 row-start-2 min-w-0">
+                  <dt className="text-[10px] font-medium uppercase tracking-wide text-[var(--admin-text-soft)]">
                     Treatment
                   </dt>
-                  <dd className="mt-0.5 text-[var(--admin-text)]">
+                  <dd className="mt-0.5 min-w-0 text-xs text-[var(--admin-text)]">
                     <TreatmentCell
                       appointment={appointment}
                       isBusy={isBusy}
@@ -802,39 +812,41 @@ export default function AppointmentsTable({
                     />
                   </dd>
                 </div>
-                <div>
-                  <dt className="text-xs font-medium uppercase tracking-wide text-[var(--admin-text-soft)]">Visits</dt>
-                  <dd className="mt-0.5"><button type="button" onClick={() => onPatientOpen(appointment)} className="inline-flex rounded-full bg-[var(--admin-status-selected-bg)] px-2 py-1 text-xs font-semibold text-[var(--admin-status-selected-text)]" title={`Open ${appointment.patient_name} visit history`}>{visitCounts.get(appointment.phone) ?? 0} {visitCounts.get(appointment.phone) === 1 ? "visit" : "visits"}</button></dd>
-                </div>
-                <div>
-                  <dt className="text-xs font-medium uppercase tracking-wide text-[var(--admin-text-soft)]">
+                <div className="col-start-1 row-start-1">
+                  <dt className="text-[10px] font-medium uppercase tracking-wide text-[var(--admin-text-soft)]">
                     Requested
                   </dt>
-                  <dd className="mt-0.5 text-[var(--admin-text-soft)]">
-                    <div className="leading-snug">
-                      <div className="whitespace-nowrap">{formatCreatedAtDate(appointment.created_at)}</div>
-                      <div className="whitespace-nowrap">{formatCreatedAtTime(appointment.created_at)}</div>
-                    </div>
+                  <dd className="mt-0.5 whitespace-nowrap text-[10px] text-[var(--admin-text-soft)]">
+                    {formatCreatedAtDate(appointment.created_at)}, {formatCreatedAtTime(appointment.created_at)}
                   </dd>
                 </div>
-                <div>
-                  <dt className="text-xs font-medium uppercase tracking-wide text-[var(--admin-text-soft)]">
-                    Appointment Date
-                  </dt>
-                  <dd className="mt-0.5 text-[var(--admin-text)]">
-                    <PreferredDateTimeCell
+                <div className="col-span-2 row-start-4 flex min-w-0 items-center gap-2">
+                  <button type="button" onClick={() => onPatientOpen(appointment)} className="inline-flex shrink-0 rounded-full bg-[var(--admin-status-selected-bg)] px-2 py-1 text-xs font-semibold text-[var(--admin-status-selected-text)]" title={`Open ${appointment.patient_name} visit history`}>{visitCounts.get(appointment.phone) ?? 0} {visitCounts.get(appointment.phone) === 1 ? "visit" : "visits"}</button>
+                  <div className="min-w-0 flex-1">
+                    <MessageCell message={appointment.message} />
+                  </div>
+                </div>
+                <div className="col-start-2 row-start-2 min-w-0">
+                  <dt className="text-[10px] font-medium uppercase tracking-wide text-[var(--admin-text-soft)]">Status</dt>
+                  <dd className="mt-0.5 min-w-0">
+                    <StatusCell
                       appointment={appointment}
-                      busyId={busyId}
-                      onPreferredDateTimeUpdate={onPreferredDateTimeUpdate}
+                      isBusy={isBusy}
+                      onStatusChange={onStatusChange}
                     />
                   </dd>
                 </div>
-                <div className="col-span-2 min-w-0">
-                  <dt className="text-xs font-medium uppercase tracking-wide text-[var(--admin-text-soft)]">
-                    Message
+                <div className="col-start-2 row-start-1 min-w-0">
+                  <dt className="text-[10px] font-medium uppercase tracking-wide text-[var(--admin-text-soft)]">
+                    Appointment Date
                   </dt>
-                  <dd className="mt-0.5 min-w-0">
-                    <MessageCell message={appointment.message} />
+                  <dd className="mt-0.5 text-xs text-[var(--admin-text)]">
+                    <PreferredDateTimeCell
+                      appointment={appointment}
+                      busyId={busyId}
+                      compact
+                      onPreferredDateTimeUpdate={onPreferredDateTimeUpdate}
+                    />
                   </dd>
                 </div>
               </dl>
@@ -900,7 +912,7 @@ export default function AppointmentsTable({
                             {getPatientInitials(appointment.patient_name)}
                           </span>
                           <span className="flex min-w-0 items-center gap-2">
-                            <span className="min-w-0 break-words font-medium text-[var(--admin-text)]">{appointment.patient_name}</span>
+                            <span className="admin-appointment-selected-text min-w-0 break-words font-medium text-[var(--admin-text)]">{appointment.patient_name}</span>
                             <span aria-hidden="true" className="inline-flex h-10 w-10 shrink-0 items-center justify-start text-[var(--admin-link)] transition-colors group-hover:text-[var(--admin-link-strong)]">
                               <ExternalLinkIcon />
                             </span>
@@ -927,12 +939,12 @@ export default function AppointmentsTable({
                       />
                     </td>
                     <td className="px-4 py-2 align-middle text-[var(--admin-text)]">
-                      <button type="button" onClick={() => onPatientOpen(appointment)} className="inline-flex rounded-full bg-[var(--admin-status-selected-bg)] px-2 py-1 text-xs font-semibold text-[var(--admin-status-selected-text)]" title={`Open ${appointment.patient_name} visit history`}>{visitCounts.get(appointment.phone) ?? 0} {visitCounts.get(appointment.phone) === 1 ? "visit" : "visits"}</button>
+                      <button type="button" onClick={() => onPatientOpen(appointment)} className="admin-appointment-selected-text inline-flex rounded-full bg-[var(--admin-status-selected-bg)] px-2 py-1 text-xs font-semibold text-[var(--admin-status-selected-text)]" title={`Open ${appointment.patient_name} visit history`}>{visitCounts.get(appointment.phone) ?? 0} {visitCounts.get(appointment.phone) === 1 ? "visit" : "visits"}</button>
                     </td>
                     <td className="px-4 py-2 align-middle text-[var(--admin-text-soft)]">
                       <div className="leading-snug">
-                        <div className="whitespace-nowrap">{formatCreatedAtDate(appointment.created_at)}</div>
-                        <div className="whitespace-nowrap">{formatCreatedAtTime(appointment.created_at)}</div>
+                        <div className="admin-appointment-selected-text whitespace-nowrap">{formatCreatedAtDate(appointment.created_at)}</div>
+                        <div className="admin-appointment-selected-text whitespace-nowrap">{formatCreatedAtTime(appointment.created_at)}</div>
                       </div>
                     </td>
                     <td className="w-[220px] max-w-[220px] px-4 py-2 align-middle text-[var(--admin-text)]">

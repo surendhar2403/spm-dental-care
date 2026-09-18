@@ -634,6 +634,22 @@
     color: var(--admin-status-selected-text);
   }
 
+  .admin-summary-timeout {
+    background-color: #fff7ed !important;
+    border-color: #fb923c !important;
+    color: #c2410c !important;
+  }
+
+  .admin-summary-timeout .admin-status-label,
+  .admin-summary-timeout .admin-status-value {
+    color: #c2410c !important;
+  }
+
+  .admin-summary-timeout .admin-summary-icon {
+    background-color: #ffedd5 !important;
+    color: #ea580c !important;
+  }
+
   .admin-appointments-table {
     background: #ffffff;
     border-color: #dbe7f0;
@@ -823,6 +839,20 @@
     border-color: rgba(251, 191, 36, 0.38) !important;
   }
 
+  html[data-admin-dark-mode="true"] .admin-summary-timeout {
+    --summary-accent: #fb923c;
+    --summary-icon-bg: rgba(234, 88, 12, 0.34);
+    --summary-icon-glow: rgba(249, 115, 22, 0.3);
+    background: linear-gradient(135deg, rgba(154, 52, 18, 0.52), rgba(67, 31, 16, 0.34)) !important;
+    border-color: rgba(251, 146, 60, 0.72) !important;
+    color: #ffedd5 !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-summary-timeout .admin-status-label,
+  html[data-admin-dark-mode="true"] .admin-summary-timeout .admin-status-value {
+    color: #fed7aa !important;
+  }
+
   html[data-admin-dark-mode="true"] .admin-summary-confirmed {
     --summary-accent: #34d399;
     --summary-icon-bg: rgba(5, 150, 105, 0.3);
@@ -850,6 +880,96 @@
   html[data-admin-dark-mode="true"] .admin-summary-card:not(.selected):hover {
     filter: brightness(1.14);
     box-shadow: 0 6px 18px rgba(15, 23, 42, 0.28);
+  }
+
+  /* Revenue metrics use dedicated dark surfaces so the light pastel utility
+     classes do not reduce contrast when the dashboard switches themes. */
+  html[data-admin-dark-mode="true"] .admin-revenue-card {
+    color: #dbeafe !important;
+    box-shadow: 0 8px 20px rgba(2, 12, 35, 0.28) !important;
+    transition-property: background-color, border-color, box-shadow, transform;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-revenue-card:hover {
+    box-shadow: 0 10px 24px rgba(2, 12, 35, 0.42) !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-revenue-card .admin-revenue-value {
+    color: #f8fafc !important;
+    opacity: 1 !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-revenue-card .admin-revenue-label,
+  html[data-admin-dark-mode="true"] .admin-revenue-card .admin-revenue-detail {
+    opacity: 1 !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-revenue-card-revenue {
+    background: linear-gradient(145deg, #173f43, #1d2b3d) !important;
+    border-color: rgba(45, 212, 191, 0.48) !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-revenue-card-revenue .admin-revenue-label,
+  html[data-admin-dark-mode="true"] .admin-revenue-card-revenue .admin-revenue-icon {
+    color: #71e0c3 !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-revenue-card-revenue .admin-revenue-icon {
+    background: rgba(20, 125, 112, 0.34) !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-revenue-card-paid {
+    background: linear-gradient(145deg, #193b59, #1d2b3d) !important;
+    border-color: rgba(96, 165, 250, 0.5) !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-revenue-card-paid .admin-revenue-label,
+  html[data-admin-dark-mode="true"] .admin-revenue-card-paid .admin-revenue-icon {
+    color: #8fc5ff !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-revenue-card-paid .admin-revenue-icon {
+    background: rgba(37, 99, 180, 0.34) !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-revenue-card-average {
+    background: linear-gradient(145deg, #493b24, #292d35) !important;
+    border-color: rgba(251, 191, 36, 0.5) !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-revenue-card-average .admin-revenue-label,
+  html[data-admin-dark-mode="true"] .admin-revenue-card-average .admin-revenue-icon {
+    color: #f8cc68 !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-revenue-card-average .admin-revenue-icon {
+    background: rgba(166, 111, 20, 0.34) !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-revenue-card-pending {
+    background: linear-gradient(145deg, #432b45, #292b3c) !important;
+    border-color: rgba(244, 114, 182, 0.5) !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-revenue-card-pending .admin-revenue-label,
+  html[data-admin-dark-mode="true"] .admin-revenue-card-pending .admin-revenue-icon {
+    color: #f5a7d0 !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-revenue-card-pending .admin-revenue-icon {
+    background: rgba(157, 56, 119, 0.34) !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-revenue-date-select {
+    background-color: #1d2b3d !important;
+    border-color: #526b85 !important;
+    color: #eaf3ff !important;
+    color-scheme: dark;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-revenue-date-select option {
+    background-color: #1d2b3d !important;
+    color: #eaf3ff !important;
   }
 
   html[data-admin-dark-mode="true"] .admin-appointments-table {
@@ -890,6 +1010,14 @@
     background-color: color-mix(in srgb, var(--admin-status-selected-border) 18%, var(--admin-surface-strong)) !important;
   }
 
+  .admin-appointment-row-selected > td {
+    color: var(--admin-text-soft) !important;
+  }
+
+  .admin-appointment-row-selected .admin-appointment-selected-text {
+    color: var(--admin-text-soft) !important;
+  }
+
   html[data-admin-dark-mode="true"] .admin-action-toast {
     border-color: rgba(255, 255, 255, 0.7);
     background-color: rgba(0, 0, 0, 0.82);
@@ -910,6 +1038,11 @@
   html[data-admin-dark-mode="true"] .admin-appointment-row-selected > td,
   html[data-admin-dark-mode="true"] .admin-appointment-card-selected {
     background-color: color-mix(in srgb, var(--admin-status-selected-border) 28%, #122238) !important;
+  }
+
+  html[data-admin-dark-mode="true"] .admin-appointment-row-selected > td,
+  html[data-admin-dark-mode="true"] .admin-appointment-row-selected .admin-appointment-selected-text {
+    color: var(--admin-text-soft) !important;
   }
 
   html[data-admin-dark-mode="true"] .admin-appointment-card {

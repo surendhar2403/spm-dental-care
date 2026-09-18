@@ -34,10 +34,17 @@ export function formatStatusLabel(status: AppointmentStatus): string {
 export function isConfirmedAppointmentPast(
   appointment: Pick<Appointment, "status" | "preferred_date" | "preferred_time">,
 ): boolean {
+  return isAppointmentTimedOut(appointment);
+}
+
+export function isAppointmentTimedOut(
+  appointment: Pick<Appointment, "status" | "preferred_date" | "preferred_time">,
+  now = Date.now(),
+): boolean {
   if (appointment.status !== "confirmed" || !appointment.preferred_time) return false;
   const scheduled = new Date(`${appointment.preferred_date}T${appointment.preferred_time}`);
   if (Number.isNaN(scheduled.getTime())) return false;
-  return scheduled.getTime() < Date.now();
+  return scheduled.getTime() < now;
 }
 
 export function formatDate(isoDate: string): string {

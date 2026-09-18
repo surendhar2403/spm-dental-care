@@ -44,12 +44,12 @@ export default function StatusUpdateToast({
     <div
       role="status"
       aria-live="polite"
-      className={`admin-action-toast fixed bottom-5 left-1/2 z-[100] flex w-max max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-2.5 rounded-xl border px-4 py-3 text-sm font-medium shadow-lg transition-all duration-400 ease-out sm:bottom-6 ${
+      className={`admin-action-toast fixed bottom-5 left-1/2 z-[100] flex w-max max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium shadow-lg transition-all duration-400 ease-out sm:bottom-6 ${
         isVisible ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"
       }`}
     >
       <span
-        className="admin-action-toast-icon flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold"
+        className="admin-action-toast-icon flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
         aria-hidden="true"
       >
         <svg
@@ -72,7 +72,7 @@ export default function StatusUpdateToast({
             toast.action?.onClick();
             onDismiss();
           }}
-          className="ml-2 shrink-0 font-semibold underline underline-offset-2 transition-opacity hover:opacity-75"
+          className="ml-1 shrink-0 px-1 py-0.5 text-[11px] font-semibold underline underline-offset-2 transition-opacity hover:opacity-75"
         >
           {toast.action.label}
         </button>

@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import LogoutButton from "./LogoutButton";
+import SecuritySettingsModal from "./SecuritySettingsModal";
 import { createClient } from "@/lib/supabase/client";
 import { normalizeIndianMobile, openWhatsAppConfirmation } from "@/lib/utils";
 import {
@@ -29,7 +32,7 @@ import type { ClinicGalleryImage, ClinicSettings } from "@/types";
 import PaginationControls from "./PaginationControls";
 import TodaysAppointments from "./TodaysAppointments";
 import PatientDetailsDrawer from "./PatientDetailsDrawer";
-import { formatDate, formatTime, formatStatusLabel } from "./appointmentDisplay";
+import { formatDate, formatTime, formatStatusLabel, isAppointmentTimedOut } from "./appointmentDisplay";
 import {
   DATE_FILTER_OPTIONS,
   getLocalISODate,
@@ -37,7 +40,9 @@ import {
   type DateFilterMode,
 } from "./dateFilterUtils";
 
-function SummaryIcon({ icon }: { icon: "calendar" | "clock" | "check" | "flag" | "cancel" }) {
+type AdminStatusFilter = "all" | AppointmentStatus | "timeout";
+
+function SummaryIcon({ icon }: { icon: "calendar" | "clock" | "check" | "flag" | "cancel" | "timeout" }) {
   const sharedProps = {
     viewBox: "0 0 24 24",
     fill: "none",
@@ -54,6 +59,16 @@ function SummaryIcon({ icon }: { icon: "calendar" | "clock" | "check" | "flag" |
       <svg {...sharedProps}>
         <circle cx="12" cy="12" r="8.5" />
         <path d="M12 7v5l3 2" />
+      </svg>
+    );
+  }
+
+  if (icon === "timeout") {
+    return (
+      <svg {...sharedProps}>
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="M12 7v5l3 2" />
+        <path d="M18.5 18.5 21 21" />
       </svg>
     );
   }
@@ -196,11 +211,13 @@ const DEFAULT_APPOINTMENTS_PAGE_SIZE = 5;
 type AppointmentsPageSize = 5 | 10 | 20 | 50;
 
 export default function AdminDashboardPage() {
+  const router = useRouter();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loadState, setLoadState] = useState<LoadState>("loading");
 
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | AppointmentStatus>("all");
+  const [statusFilter, setStatusFilter] = useState<AdminStatusFilter>("all");
+  const [now, setNow] = useState(() => Date.now());
   const [dateFilterMode, setDateFilterMode] = useState<DateFilterMode>("all");
   const [customDate, setCustomDate] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -215,6 +232,7 @@ export default function AdminDashboardPage() {
   const [viewingArchivedId, setViewingArchivedId] = useState<string | null>(null);
   const [isBinOpen, setIsBinOpen] = useState(false);
   const [isNewAppointmentOpen, setIsNewAppointmentOpen] = useState(false);
+  const [isSecuritySettingsOpen, setIsSecuritySettingsOpen] = useState(false);
   const [newAppointmentPrefill, setNewAppointmentPrefill] = useState<{ patientName?: string; phone?: string }>({});
   const [isCreatingAppointment, setIsCreatingAppointment] = useState(false);
   const [banner, setBanner] = useState<{
@@ -226,6 +244,11 @@ export default function AdminDashboardPage() {
     id: number;
     message: string;
   } | null>(null);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   const [editingTreatmentId, setEditingTreatmentId] = useState<string | null>(null);
   const [treatmentDraft, setTreatmentDraft] = useState("");
@@ -497,6 +520,9 @@ export default function AdminDashboardPage() {
         case "bin":
           setIsBinOpen(true);
           break;
+        case "security":
+          setIsSecuritySettingsOpen(true);
+          break;
         default:
           break;
       }
@@ -546,13 +572,18 @@ export default function AdminDashboardPage() {
       cancelled: 0,
       no_show: 0,
     };
+    let timeout = 0;
 
     for (const appointment of activeAppointments) {
+      if (isAppointmentTimedOut(appointment, now)) {
+        timeout += 1;
+        continue;
+      }
       counts[appointment.status] = (counts[appointment.status] ?? 0) + 1;
     }
 
-    return counts;
-  }, [activeAppointments]);
+    return { ...counts, timeout };
+  }, [activeAppointments, now]);
 
   async function fetchClinicSettings() {
     setClinicSettingsLoadState("loading");
@@ -1094,11 +1125,11 @@ export default function AdminDashboardPage() {
   }
 
   const summaryCards: Array<{
-    key: "all" | AppointmentStatus;
+    key: AdminStatusFilter;
     label: string;
     count: number;
     description: string;
-    icon: "calendar" | "clock" | "check" | "flag" | "cancel";
+    icon: "calendar" | "clock" | "check" | "flag" | "cancel" | "timeout";
     theme: string;
   }> = [
     {
@@ -1141,6 +1172,14 @@ export default function AdminDashboardPage() {
       icon: "cancel",
       theme: "border-rose-100 bg-rose-50 text-rose-700",
     },
+    {
+      key: "timeout",
+      label: "Timeout",
+      count: statusCounts.timeout,
+      description: "Appointment time passed",
+      icon: "timeout",
+      theme: "border-orange-200 bg-orange-50 text-orange-800",
+    },
   ];
 
   const todayIso = getLocalISODate();
@@ -1157,7 +1196,11 @@ export default function AdminDashboardPage() {
         !query ||
         appointment.patient_name.toLowerCase().includes(query) ||
         appointment.phone.toLowerCase().includes(query);
-      const matchesStatus = statusFilter === "all" || appointment.status === statusFilter;
+      const matchesStatus =
+        statusFilter === "all" ||
+        (statusFilter === "timeout"
+          ? isAppointmentTimedOut(appointment, now)
+          : appointment.status === statusFilter);
       const matchesDate = matchesDateFilter(
         appointment.preferred_date,
         dateFilterMode,
@@ -1166,7 +1209,7 @@ export default function AdminDashboardPage() {
       );
       return matchesSearch && matchesStatus && matchesDate;
     });
-  }, [activeAppointments, search, statusFilter, dateFilterMode, customDate, todayIso]);
+  }, [activeAppointments, search, statusFilter, dateFilterMode, customDate, todayIso, now]);
 
   const hasActiveFilters = Boolean(search || statusFilter !== "all" || dateFilterMode !== "all");
 
@@ -1883,10 +1926,10 @@ export default function AdminDashboardPage() {
       <div
         role="group"
         aria-label="Appointment status summary"
-        className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"
+        className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6"
       >
         {loadState === "loading"
-          ? Array.from({ length: 5 }).map((_, index) => (
+          ? Array.from({ length: 6 }).map((_, index) => (
               <div
                 key={index}
                 className="flex min-h-[52px] animate-pulse items-center gap-2 rounded-xl border border-line bg-canvas-soft p-2"
@@ -1906,18 +1949,18 @@ export default function AdminDashboardPage() {
                   type="button"
                   onClick={() => setStatusFilter(card.key)}
                   aria-pressed={isActive}
-                  className={`admin-status-card admin-summary-card admin-summary-${card.key} ${card.theme} flex min-h-[52px] items-center gap-2 rounded-xl border p-2 text-left shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-600 ${
+                    className={`admin-status-card admin-summary-card admin-summary-${card.key} ${card.theme} flex min-h-[70px] items-center gap-2.5 rounded-2xl border p-2.5 text-left shadow-sm transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-px hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-600 ${
                     isActive ? "selected" : ""
                   }`}
                 >
-                  <span className="admin-summary-icon flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/65">
+                  <span className="admin-summary-icon flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/70 shadow-sm">
                     <SummaryIcon icon={card.icon} />
                   </span>
                   <div className="min-w-0">
-                    <div className="admin-status-label text-[10px] font-semibold uppercase tracking-wide">
+                    <div className="admin-status-label text-[10px] font-bold uppercase tracking-[0.08em]">
                       {card.label}
                     </div>
-                    <div className="truncate text-[9px] leading-tight opacity-75">
+                    <div className="truncate text-[10px] leading-tight opacity-75">
                       {card.description}
                     </div>
                   </div>
@@ -1957,8 +2000,9 @@ export default function AdminDashboardPage() {
                 label: status.charAt(0).toUpperCase() + status.slice(1),
               })),
               { value: "no_show", label: "No Show" },
+              { value: "timeout", label: "Timeout" },
             ]}
-            onChange={(value) => setStatusFilter(value as "all" | AppointmentStatus)}
+            onChange={(value) => setStatusFilter(value as AdminStatusFilter)}
           />
           <FilterDropdown
             value={dateFilterMode}
@@ -1994,6 +2038,18 @@ export default function AdminDashboardPage() {
               Clear filters
             </button>
           ) : null}
+          <button
+            type="button"
+            onClick={() => router.push("/admin/revenue")}
+            className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-blue-900 px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-800"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+              <path d="M4 19V5" />
+              <path d="M4 19h16" />
+              <path d="m7 15 3-4 3 2 4-6" />
+            </svg>
+            Revenue
+          </button>
           <button
             type="button"
             onClick={() => setIsNewAppointmentOpen(true)}
@@ -2196,6 +2252,10 @@ export default function AdminDashboardPage() {
           onCancel={() => setPendingPermanentDelete(null)}
           onConfirm={handlePermanentDeleteConfirmed}
         />
+      ) : null}
+
+      {isSecuritySettingsOpen ? (
+        <SecuritySettingsModal onClose={() => setIsSecuritySettingsOpen(false)} />
       ) : null}
 
       <StatusUpdateToast

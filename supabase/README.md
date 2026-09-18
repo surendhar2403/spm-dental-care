@@ -14,10 +14,11 @@
    into `public.admins`. Nothing in the app itself can create an admin —
    that's intentional.
 
-4. **No new environment variables needed.** The admin dashboard reuses the
-   existing `NEXT_PUBLIC_SUPABASE_URL` and
-   `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` from `.env.local`. The
-   secret/service_role key is never used anywhere in this app.
+4. **Environment variables.** The admin dashboard reuses the existing
+   `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` from
+   `.env.local`. Revenue protection additionally requires the server-only
+   `REVENUE_ACCESS_SESSION_SECRET` from `.env.local`; the secret/service_role
+   key is never used anywhere in this app.
 
 5. **Install the new dependency and run locally:**
    ```
@@ -99,3 +100,37 @@
    Manage Treatments modal then persists numeric prices and `is_active`;
    the public Treatments section displays configured INR prices and only
    active rows. Leave price empty for treatments without a configured amount.
+
+13. **Revenue protection.** Run `revenue_access.sql` after step 1. It creates
+    the hash-only Revenue password table and admin-gated RPCs for verification,
+    first-time setup, and password changes. The first Revenue password can be
+    set from Admin Settings → Security after this migration is applied. Set
+    `REVENUE_ACCESS_SESSION_SECRET` in the server environment to a long random
+    value; it signs the short-lived HTTP-only Revenue authorization cookie and
+    is never exposed to the browser. The existing Supabase Admin Auth session
+    and `is_admin()` checks remain required for every Revenue operation.
+   If the migration was already run and the app reports that
+   `initialize_revenue_password` cannot be found in the schema cache, run
+   `revenue_access_initialize_repair.sql` in the Supabase SQL Editor. This
+   creates only the missing RPC against the existing hash table, grants its
+   authenticated execution permission, and runs `notify pgrst, 'reload
+   schema';` before you refresh the dashboard.
+
+14. **Revenue login verification repair.** If a Revenue password was saved
+   successfully but the same password is rejected, run
+   `revenue_access_verify_repair.sql`. It recreates only the existing
+   `verify_revenue_password(text)` RPC with bcrypt verification against
+   `public.revenue_access_settings.password_hash`, grants authenticated
+   execution, and reloads the PostgREST schema cache.
+
+15. **Revenue password change repair.** If Settings → Security reports that
+   `change_revenue_password` is missing, run
+   `revenue_access_change_repair.sql`. It verifies the current bcrypt hash,
+   rejects reusing the same password, updates the existing row only, grants
+   authenticated execution, and reloads the PostgREST schema cache.
+
+16. **Revenue password existence check.** If the Security modal reports
+   `permission denied for table revenue_access_settings`, run
+   `revenue_access_has_password_repair.sql`. The frontend uses the resulting
+   `has_revenue_password()` RPC, which returns only `true` or `false` through
+   a `SECURITY DEFINER` function and never exposes the password hash.
